@@ -126,9 +126,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const userResponse: UserResponse = { id: updatedUser.id, email: updatedUser.email, childIds: updatedUser.childIds };
     return ok(c, { child: childState, user: userResponse });
   });
-  // Middleware to verify child ownership
-  const childAuthMiddleware = new Hono<{ Bindings: Env, Variables: AuthVariables }>();
-  childAuthMiddleware.use('/children/:childId/*', async (c, next) => {
+  // Guard child-specific routes so users can only access their own data
+  protectedRoutes.use('/children/:childId/*', async (c, next) => {
     const user = c.get('user');
     const childId = c.req.param('childId');
     const { childIds } = await user.getState();
@@ -137,8 +136,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
     await next();
   });
-  app.route('/api', protectedRoutes);
-  protectedRoutes.route('/', childAuthMiddleware);
   // --- CHILD-SPECIFIC CHART ROUTES ---
   const getWeekId = (childId: string, year: string, week: string) => `${childId}:${year}-W${week.padStart(2, '0')}`;
   protectedRoutes.get('/children/:childId/chart/:year/:week', async (c) => {
@@ -247,4 +244,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const updatedChild = await child.deletePrizeTarget(targetId);
     return ok(c, updatedChild);
   });
+
+  app.route('/api', protectedRoutes);
 }
