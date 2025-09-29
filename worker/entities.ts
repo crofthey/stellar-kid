@@ -21,6 +21,12 @@ export class UserEntity extends IndexedEntity<User> {
             childIds: [...(s.childIds || []), childId],
         }));
     }
+    async removeChild(childId: string): Promise<User> {
+        return this.mutate(s => ({
+            ...s,
+            childIds: (s.childIds || []).filter(id => id !== childId),
+        }));
+    }
     async setPasswordResetToken(): Promise<string> {
         const resetToken = crypto.randomUUID();
         const tokenBuffer = new TextEncoder().encode(resetToken);

@@ -301,6 +301,24 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const updatedChild = await child.deletePrizeTarget(targetId);
     return ok(c, updatedChild);
   });
+  protectedRoutes.delete('/children/:childId', async (c) => {
+    const authUser = c.get('user');
+    const { childId } = c.req.param();
+    const child = new ChildEntity(c.env, childId);
+    if (!(await child.exists())) {
+        return notFound(c, 'Child not found');
+    }
+    const childState = await child.getState();
+    const userState = await authUser.getState();
+    if (childState.parentId !== userState.id) {
+        throw new HTTPException(403, { message: 'Forbidden: You do not have access to this child.' });
+    }
+    await child.delete();
+    const childIndex = new Index<string>(c.env, ChildEntity.indexName);
+    await childIndex.remove(childId);
+    await authUser.removeChild(childId);
+    return ok(c, { success: true });
+  });
 
   app.get('/api/admin/stats', async (c) => {
     requireAdminKey(c);

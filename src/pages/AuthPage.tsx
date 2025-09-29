@@ -23,7 +23,7 @@ export function AuthPage() {
       <div className="relative z-10 flex flex-col items-center space-y-4 text-center">
         <div className="flex items-center gap-3 text-5xl font-display font-bold text-stellar-blue">
           <Star className="h-10 w-10" />
-          <h1>StellarKid</h1>
+          <h1>Kids Star Chart</h1>
         </div>
         <p className="text-lg text-muted-foreground">
           Sign in or create an account to start tracking.

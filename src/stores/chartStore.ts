@@ -24,6 +24,7 @@ type ChartActions = {
   updateChildSettings: (settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>) => Promise<void>;
   incrementPrizes: () => Promise<void>;
   decrementPrizes: () => Promise<void>;
+  deleteChild: (childId: string) => Promise<void>;
   resetChart: () => Promise<void>;
   addPrizeTarget: (target: Omit<PrizeTarget, 'id' | 'childId' | 'isAchieved'>) => Promise<void>;
   updatePrizeTarget: (targetId: string, updates: Partial<Omit<PrizeTarget, 'id' | 'childId'>>) => Promise<void>;
@@ -291,6 +292,23 @@ export const useChartStore = create<ChartState & ChartActions>()(
         });
       } catch (error) {
         toast.error('Could not update prize count.');
+      }
+    },
+    deleteChild: async (childId) => {
+      try {
+        await api<{ success: boolean }>(`/api/children/${childId}`, {
+          method: 'DELETE',
+        });
+        set(state => {
+          state.children = state.children.filter(c => c.id !== childId);
+          if (state.selectedChild?.id === childId) {
+            state.selectedChild = null;
+            state.weekData = null;
+          }
+        });
+        toast.success('Child has been removed.');
+      } catch (error) {
+        toast.error('Could not delete child.');
       }
     },
     resetChart: async () => {

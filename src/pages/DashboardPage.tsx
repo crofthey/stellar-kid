@@ -31,11 +31,12 @@ export function DashboardPage() {
       isLoading: state.isLoading,
     }))
   );
-  const { children, fetchChildren, createChild, isFetchingChildren } = useChartStore(
+  const { children, fetchChildren, createChild, deleteChild, isFetchingChildren } = useChartStore(
     useShallow(state => ({
       children: state.children,
       fetchChildren: state.fetchChildren,
       createChild: state.createChild,
+      deleteChild: state.deleteChild,
       isFetchingChildren: state.isFetchingChildren,
     }))
   );
@@ -73,7 +74,7 @@ export function DashboardPage() {
         <header className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3 text-3xl font-display font-bold text-stellar-blue">
             <Star className="h-8 w-8" />
-            <h1>StellarKid Dashboard</h1>
+            <h1>Kids Star Chart</h1>
           </div>
           <div className="flex items-center gap-2">
             <ParentSettingsMenu />
@@ -142,7 +143,7 @@ export function DashboardPage() {
               ) : children.length > 0 ? (
                 <div className="space-y-3">
                   {children.map(child => (
-                    <ChildListItem key={child.id} child={child} />
+                    <ChildListItem key={child.id} child={child} onDelete={deleteChild} />
                   ))}
                 </div>
               ) : (
