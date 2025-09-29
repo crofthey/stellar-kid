@@ -1,5 +1,5 @@
 import { Entity, IndexedEntity, Env } from "./core-utils";
-import type { ChartWeek, DayState, SlotState, WeekData, User, Child, PrizeTarget } from "@shared/types";
+import type { ChartWeek, DayState, SlotState, WeekData, User, Child, PrizeTarget, PasswordResetRequest } from "@shared/types";
 import { hashPassword } from './auth';
 // USER (PARENT) ENTITY
 export class UserEntity extends IndexedEntity<User> {
@@ -12,6 +12,8 @@ export class UserEntity extends IndexedEntity<User> {
         childIds: [],
         passwordResetToken: undefined,
         passwordResetExpires: undefined,
+        lastLoginAt: undefined,
+        loginCount: 0,
     };
     async addChild(childId: string): Promise<User> {
         return this.mutate(s => ({
@@ -39,6 +41,14 @@ export class UserEntity extends IndexedEntity<User> {
             hashedPassword: newHashedPassword,
             passwordResetToken: undefined,
             passwordResetExpires: undefined,
+        }));
+    }
+    async recordLogin(): Promise<User> {
+        const timestamp = Date.now();
+        return this.mutate(s => ({
+            ...s,
+            lastLoginAt: timestamp,
+            loginCount: (s.loginCount || 0) + 1,
         }));
     }
 }
@@ -173,6 +183,37 @@ export class ChildEntity extends IndexedEntity<Child> {
             });
         });
     }
+}
+
+type SystemStats = {
+    totalSlotUpdates: number;
+};
+
+export class SystemStatsEntity extends Entity<SystemStats> {
+    static readonly entityName = "system-stats";
+    static readonly initialState: SystemStats = {
+        totalSlotUpdates: 0,
+    };
+    constructor(env: Env, id: string = 'global') {
+        super(env, id);
+    }
+    async incrementSlotUpdates(): Promise<SystemStats> {
+        return this.mutate(s => ({
+            ...s,
+            totalSlotUpdates: (s.totalSlotUpdates || 0) + 1,
+        }));
+    }
+}
+
+export class PasswordResetRequestEntity extends IndexedEntity<PasswordResetRequest> {
+    static readonly entityName = "password-reset-request";
+    static readonly indexName = "password-reset-requests";
+    static readonly initialState: PasswordResetRequest = {
+        id: "",
+        email: "",
+        createdAt: 0,
+        status: 'pending',
+    };
 }
 // STELLARKID CHART ENTITY
 const createInitialWeekData = (): WeekData => {

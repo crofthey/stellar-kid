@@ -16,6 +16,8 @@ export interface User {
     childIds: string[];
     passwordResetToken?: string;
     passwordResetExpires?: number;
+    lastLoginAt?: number;
+    loginCount?: number;
 }
 export type UserResponse = Omit<User, 'hashedPassword' | 'passwordResetToken' | 'passwordResetExpires'>;
 // Prize Target
@@ -66,4 +68,35 @@ export interface UpdateSlotResponse {
 export interface ResetChartResponse {
     chartWeek: ChartWeek;
     child: Child;
+}
+
+export interface AdminStats {
+    totalAccounts: number;
+    totalChildren: number;
+    totalSlotUpdates: number;
+    totalLogins: number;
+    lastLoginAt: number | null;
+    lastLoginEmail: string | null;
+    accounts: AdminAccountSummary[];
+    resetRequests: PasswordResetRequest[];
+}
+
+export interface AdminAccountSummary {
+    email: string;
+    lastLoginAt: number | null;
+    loginCount: number;
+    childCount: number;
+    totalPrizeTargets: number;
+    totalSlotUpdates: number;
+}
+
+export type PasswordResetRequestStatus = 'pending' | 'completed';
+
+export interface PasswordResetRequest {
+    id: string;
+    email: string;
+    createdAt: number;
+    status: PasswordResetRequestStatus;
+    resolvedAt?: number;
+    resolvedBy?: string;
 }

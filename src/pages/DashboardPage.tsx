@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Toaster } from '@/components/ui/sonner';
 import { ChildListItem } from '@/components/ChildListItem';
+import { ParentSettingsMenu } from '@/components/ParentSettingsMenu';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { isAuthenticated, isInitialized, logout, isLoading: isAuthLoading } = useAuthStore(
@@ -74,31 +75,34 @@ export function DashboardPage() {
             <Star className="h-8 w-8" />
             <h1>StellarKid Dashboard</h1>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost">
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  Are you sure you want to log out?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  You will be returned to the login screen.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={logout}>
-                  Log Out
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center gap-2">
+            <ParentSettingsMenu />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Are you sure you want to log out?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You will be returned to the login screen.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={logout}>
+                    Log Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </header>
         <div className="grid gap-8 md:grid-cols-2">
           <Card>

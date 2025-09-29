@@ -15,6 +15,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ChartPage } from '@/pages/ChartPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { AdminPage } from '@/pages/AdminPage';
 const router = createBrowserRouter([
   {
     path: "/",
@@ -40,6 +41,10 @@ const router = createBrowserRouter([
   {
     path: "/reset-password",
     element: <ResetPasswordPage />,
+  },
+  {
+    path: "/admin",
+    element: <AdminPage />,
   },
 ]);
 // Do not touch this code

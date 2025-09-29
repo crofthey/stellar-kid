@@ -1,10 +1,11 @@
 import { Hono } from "hono";
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Env } from './core-utils';
-import { UserEntity, ChildEntity, ChartWeekEntity } from "./entities";
+import { UserEntity, ChildEntity, ChartWeekEntity, SystemStatsEntity, PasswordResetRequestEntity } from "./entities";
 import { ok, bad, isStr, Index, notFound } from './core-utils';
 import { hashPassword, verifyPassword, signToken, authMiddleware } from './auth';
-import type { SlotState, Child, UserResponse, PrizeTarget, DayState, WeekData } from "@shared/types";
+import type { SlotState, Child, UserResponse, PrizeTarget, DayState, WeekData, AdminStats, AdminAccountSummary } from "@shared/types";
 type AuthVariables = {
     user: UserEntity;
 };
@@ -17,6 +18,17 @@ const isWeekPerfect = (weekData: WeekData | Record<number, DayState>): boolean =
   return allSlots.length === 21 && allSlots.every((slot) => slot === 'star');
 };
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
+  const requireAdminKey = (c: Context) => {
+    const configuredKey = c.env.ADMIN_API_KEY;
+    if (!configuredKey) {
+      throw new HTTPException(500, { message: 'Admin key not configured.' });
+    }
+    const authHeader = c.req.header('Authorization') || '';
+    const providedKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!providedKey || providedKey !== configuredKey) {
+      throw new HTTPException(401, { message: 'Unauthorized' });
+    }
+  };
   // --- PUBLIC AUTH ROUTES ---
   app.post('/api/auth/register', async (c) => {
     const { email, password } = await c.req.json<{ email?: string; password?: string }>();
@@ -53,6 +65,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!passwordMatch) {
       return bad(c, 'Incorrect password.');
     }
+    await user.recordLogin();
     const token = await signToken({ userId: id });
     const userResponse: UserResponse = { id, email: emailKey, childIds };
     return ok(c, { token, user: userResponse });
@@ -63,11 +76,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const emailKey = email.toLowerCase();
     const user = new UserEntity(c.env, emailKey);
     if (!(await user.exists())) {
-      return ok(c, { message: 'If a user with that email exists, a reset token has been generated.' });
+      return ok(c, { message: 'If a user with that email exists, an administrator will reach out shortly.' });
     }
-    const resetToken = await user.setPasswordResetToken();
-    console.log(`Password reset token for ${emailKey}: ${resetToken}`);
-    return ok(c, { resetToken, message: 'Password reset token generated.' });
+    await user.setPasswordResetToken();
+    const requestId = crypto.randomUUID();
+    await PasswordResetRequestEntity.create(c.env, {
+      id: requestId,
+      email: emailKey,
+      createdAt: Date.now(),
+      status: 'pending',
+    });
+    console.log(`Password reset request captured for ${emailKey} (${requestId})`);
+    return ok(c, { message: 'Password reset request received. An administrator will update your account soon.' });
   });
   app.post('/api/auth/reset-password', async (c) => {
     const { token, password } = await c.req.json<{ token?: string; password?: string }>();
@@ -178,6 +198,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         const child = new ChildEntity(c.env, childId);
         updatedChild = await child.updateStats(starDelta, perfectDayDelta, perfectWeekDelta);
     }
+    const systemStats = new SystemStatsEntity(c.env);
+    await systemStats.incrementSlotUpdates();
     return ok(c, { chartWeek: updatedWeek, child: updatedChild });
   });
   protectedRoutes.post('/children/:childId/chart/:year/:week/reset', async (c) => {
@@ -217,6 +239,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const child = new ChildEntity(c.env, childId);
     const updatedSettings = await child.decrementPrizes();
     return ok(c, updatedSettings);
+  });
+  protectedRoutes.post('/auth/change-password', async (c) => {
+    const authUser = c.get('user');
+    const { currentPassword, newPassword } = await c.req.json<{ currentPassword?: string; newPassword?: string }>();
+    if (!isStr(currentPassword) || !isStr(newPassword) || newPassword.length < 6) {
+      return bad(c, 'Current password and a new password (min. 6 characters) are required.');
+    }
+    const state = await authUser.getState();
+    const matches = await verifyPassword(currentPassword, state.hashedPassword);
+    if (!matches) {
+      return bad(c, 'Current password is incorrect.');
+    }
+    await authUser.resetPassword(newPassword);
+    return ok(c, { message: 'Password updated successfully.' });
   });
   // --- CHILD-SPECIFIC PRIZE TARGET ROUTES ---
   protectedRoutes.post('/children/:childId/targets', async (c) => {
@@ -264,6 +300,94 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }
     const updatedChild = await child.deletePrizeTarget(targetId);
     return ok(c, updatedChild);
+  });
+
+  app.get('/api/admin/stats', async (c) => {
+    requireAdminKey(c);
+    const statsEntity = new SystemStatsEntity(c.env);
+    const systemStats = await statsEntity.getState();
+
+    const userIndex = new Index<string>(c.env, UserEntity.indexName);
+    const userIds = await userIndex.list();
+    const users = await Promise.all(userIds.map((id) => new UserEntity(c.env, id).getState()));
+
+    const childIndex = new Index<string>(c.env, ChildEntity.indexName);
+    const childIds = await childIndex.list();
+
+    let lastLoginAt: number | null = null;
+    let lastLoginEmail: string | null = null;
+    let totalLogins = 0;
+    for (const user of users) {
+      if (user.lastLoginAt && (!lastLoginAt || user.lastLoginAt > lastLoginAt)) {
+        lastLoginAt = user.lastLoginAt;
+        lastLoginEmail = user.email;
+      }
+      totalLogins += user.loginCount ?? 0;
+    }
+
+    const childStates = await Promise.all(childIds.map((id) => new ChildEntity(c.env, id).getState()));
+    const childStatsByParent = new Map<string, { targetCount: number; slotUpdates: number }>();
+    for (const child of childStates) {
+      const entry = childStatsByParent.get(child.parentId) || { targetCount: 0, slotUpdates: 0 };
+      entry.targetCount += child.prizeTargets?.length || 0;
+      entry.slotUpdates += child.totalStars + child.totalPerfectDays + child.totalPerfectWeeks;
+      childStatsByParent.set(child.parentId, entry);
+    }
+
+    const accounts: AdminAccountSummary[] = users.map(user => {
+      const childMeta = childStatsByParent.get(user.id) || { targetCount: 0, slotUpdates: 0 };
+      return {
+        email: user.email,
+        lastLoginAt: user.lastLoginAt ?? null,
+        loginCount: user.loginCount ?? 0,
+        childCount: user.childIds?.length || 0,
+        totalPrizeTargets: childMeta.targetCount,
+        totalSlotUpdates: childMeta.slotUpdates,
+      };
+    }).sort((a, b) => (b.lastLoginAt ?? 0) - (a.lastLoginAt ?? 0));
+
+    const { items: resetRequestsRaw } = await PasswordResetRequestEntity.list(c.env);
+
+    const payload: AdminStats = {
+      totalAccounts: users.length,
+      totalChildren: childIds.length,
+      totalSlotUpdates: systemStats.totalSlotUpdates || 0,
+      totalLogins,
+      lastLoginAt,
+      lastLoginEmail,
+      accounts,
+      resetRequests: resetRequestsRaw.sort((a, b) => b.createdAt - a.createdAt),
+    };
+    return ok(c, payload);
+  });
+
+  app.post('/api/admin/reset-requests/:requestId/resolve', async (c) => {
+    requireAdminKey(c);
+    const { requestId } = c.req.param();
+    const body = await c.req.json<{ newPassword?: string }>();
+    if (!isStr(body.newPassword) || body.newPassword.length < 6) {
+      return bad(c, 'A new password of at least 6 characters is required.');
+    }
+    const request = new PasswordResetRequestEntity(c.env, requestId);
+    if (!(await request.exists())) {
+      return notFound(c, 'Reset request not found.');
+    }
+    const requestState = await request.getState();
+    if (requestState.status === 'completed') {
+      return bad(c, 'Reset request has already been completed.');
+    }
+    const user = new UserEntity(c.env, requestState.email);
+    if (!(await user.exists())) {
+      return notFound(c, 'User account not found.');
+    }
+    await user.resetPassword(body.newPassword);
+    await request.save({
+      ...requestState,
+      status: 'completed',
+      resolvedAt: Date.now(),
+      resolvedBy: 'admin',
+    });
+    return ok(c, { message: 'Password updated successfully.' });
   });
 
   app.route('/api', protectedRoutes);

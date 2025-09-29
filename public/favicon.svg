@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="starGradient" x1="0" x2="1" y1="1" y2="0">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#0f172a" />
+  <path
+    d="M32 10.5l6.83 13.83L54 26.9l-11 10.73 2.6 15.37L32 45.6l-13.6 7.4 2.6-15.37-11-10.73 15.17-2.57L32 10.5z"
+    fill="url(#starGradient)"
+    stroke="#facc15"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+</svg>

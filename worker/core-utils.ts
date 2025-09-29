@@ -7,6 +7,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Context } from "hono";
 export interface Env {
   GlobalDurableObject: DurableObjectNamespace<GlobalDurableObject>;
+  ADMIN_API_KEY?: string;
 }
 type Doc<T> = { v: number; data: T };
 /**
