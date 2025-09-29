@@ -180,6 +180,15 @@ export function AdminPage() {
               </Card>
               <Card>
                 <CardHeader>
+                  <CardTitle>Last Interacted</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-medium">{formatTimestamp(stats.lastInteractionAt)}</p>
+                  <p className="text-sm text-muted-foreground">Most recent chart update</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
                   <CardTitle>Last Login</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -206,6 +215,7 @@ export function AdminPage() {
                     <tr>
                       <th className="py-2 pr-4">Email</th>
                       <th className="py-2 pr-4">Last login</th>
+                      <th className="py-2 pr-4">Last interaction</th>
                       <th className="py-2 pr-4">Logins</th>
                       <th className="py-2 pr-4">Children</th>
                       <th className="py-2 pr-4">Prize targets</th>
@@ -217,6 +227,7 @@ export function AdminPage() {
                       <tr key={account.email} className="border-t">
                         <td className="py-2 pr-4 font-medium">{account.email}</td>
                         <td className="py-2 pr-4">{formatTimestamp(account.lastLoginAt)}</td>
+                        <td className="py-2 pr-4">{formatTimestamp(account.lastInteractionAt)}</td>
                         <td className="py-2 pr-4">{account.loginCount}</td>
                         <td className="py-2 pr-4">{account.childCount}</td>
                         <td className="py-2 pr-4">{account.totalPrizeTargets}</td>

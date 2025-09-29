@@ -172,6 +172,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   protectedRoutes.post('/children/:childId/chart/:year/:week', async (c) => {
     const { childId, year, week } = c.req.param();
     const weekId = getWeekId(childId, year, week);
+    const childEntity = new ChildEntity(c.env, childId);
+    const childState = await childEntity.getState();
     const { dayIndex, slotIndex, state: newState } = await c.req.json<{ dayIndex: number; slotIndex: number; state: SlotState }>();
     if (dayIndex === undefined || slotIndex === undefined || !newState) {
       return bad(c, 'Missing dayIndex, slotIndex, or state');
@@ -195,11 +197,14 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     else if (wasWeekPerfectBefore && !isWeekPerfectAfter) perfectWeekDelta = -1;
     let updatedChild: Child | undefined;
     if (starDelta !== 0 || perfectDayDelta !== 0 || perfectWeekDelta !== 0) {
-        const child = new ChildEntity(c.env, childId);
-        updatedChild = await child.updateStats(starDelta, perfectDayDelta, perfectWeekDelta);
+        updatedChild = await childEntity.updateStats(starDelta, perfectDayDelta, perfectWeekDelta);
     }
     const systemStats = new SystemStatsEntity(c.env);
     await systemStats.incrementSlotUpdates();
+    if (childState.parentId) {
+      const parent = new UserEntity(c.env, childState.parentId);
+      await parent.recordInteraction();
+    }
     return ok(c, { chartWeek: updatedWeek, child: updatedChild });
   });
   protectedRoutes.post('/children/:childId/chart/:year/:week/reset', async (c) => {
@@ -361,6 +366,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         childCount: user.childIds?.length || 0,
         totalPrizeTargets: childMeta.targetCount,
         totalSlotUpdates: childMeta.slotUpdates,
+        lastInteractionAt: user.lastInteractionAt ?? null,
       };
     }).sort((a, b) => (b.lastLoginAt ?? 0) - (a.lastLoginAt ?? 0));
 
@@ -371,6 +377,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       totalChildren: childIds.length,
       totalSlotUpdates: systemStats.totalSlotUpdates || 0,
       totalLogins,
+      lastInteractionAt: systemStats.lastInteractionAt ?? null,
       lastLoginAt,
       lastLoginEmail,
       accounts,

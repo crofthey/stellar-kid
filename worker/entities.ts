@@ -14,6 +14,7 @@ export class UserEntity extends IndexedEntity<User> {
         passwordResetExpires: undefined,
         lastLoginAt: undefined,
         loginCount: 0,
+        lastInteractionAt: undefined,
     };
     async addChild(childId: string): Promise<User> {
         return this.mutate(s => ({
@@ -55,6 +56,13 @@ export class UserEntity extends IndexedEntity<User> {
             ...s,
             lastLoginAt: timestamp,
             loginCount: (s.loginCount || 0) + 1,
+        }));
+    }
+    async recordInteraction(): Promise<User> {
+        const timestamp = Date.now();
+        return this.mutate(s => ({
+            ...s,
+            lastInteractionAt: timestamp,
         }));
     }
 }
@@ -193,12 +201,14 @@ export class ChildEntity extends IndexedEntity<Child> {
 
 type SystemStats = {
     totalSlotUpdates: number;
+    lastInteractionAt: number | null;
 };
 
 export class SystemStatsEntity extends Entity<SystemStats> {
     static readonly entityName = "system-stats";
     static readonly initialState: SystemStats = {
         totalSlotUpdates: 0,
+        lastInteractionAt: null,
     };
     constructor(env: Env, id: string = 'global') {
         super(env, id);
@@ -207,6 +217,7 @@ export class SystemStatsEntity extends Entity<SystemStats> {
         return this.mutate(s => ({
             ...s,
             totalSlotUpdates: (s.totalSlotUpdates || 0) + 1,
+            lastInteractionAt: Date.now(),
         }));
     }
 }
