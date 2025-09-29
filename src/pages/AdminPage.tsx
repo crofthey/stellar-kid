@@ -25,6 +25,8 @@ export function AdminPage() {
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [requestFeedback, setRequestFeedback] = useState<string | null>(null);
+  const [processingFeedbackId, setProcessingFeedbackId] = useState<string | null>(null);
+  const [feedbackActionMessage, setFeedbackActionMessage] = useState<string | null>(null);
 
   const hasAccess = useMemo(() => stats !== null, [stats]);
 
@@ -107,6 +109,31 @@ export function AdminPage() {
       setRequestFeedback(err instanceof Error ? err.message : 'Unable to update password.');
     } finally {
       setProcessingRequest(null);
+    }
+  };
+
+  const handleMarkFeedbackRead = async (feedbackId: string) => {
+    if (!adminKey) return;
+    setProcessingFeedbackId(feedbackId);
+    setFeedbackActionMessage(null);
+    try {
+      const res = await fetch(`/api/admin/feedback/${feedbackId}/read`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminKey}`,
+        },
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Request failed (${res.status})`);
+      }
+      setFeedbackActionMessage('Marked feedback as read.');
+      setRefreshCounter(prev => prev + 1);
+    } catch (err) {
+      console.error(err);
+      setFeedbackActionMessage(err instanceof Error ? err.message : 'Unable to update feedback.');
+    } finally {
+      setProcessingFeedbackId(null);
     }
   };
 
@@ -236,6 +263,50 @@ export function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold">Feedback Messages</h3>
+                <Badge variant="outline">{stats.feedbackMessages.filter(f => f.status === 'new').length} new</Badge>
+              </div>
+              {feedbackActionMessage && <p className="text-sm text-muted-foreground">{feedbackActionMessage}</p>}
+              <div className="space-y-3">
+                {stats.feedbackMessages.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No feedback received yet.</p>
+                )}
+                {stats.feedbackMessages.map((feedback) => (
+                  <Card key={feedback.id} className={feedback.status === 'read' ? 'opacity-70' : ''}>
+                    <CardHeader className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <CardTitle className="text-base">{feedback.email}</CardTitle>
+                        <p className="text-xs text-muted-foreground">Sent {formatTimestamp(feedback.createdAt)}</p>
+                      </div>
+                      <Badge variant={feedback.status === 'new' ? 'secondary' : 'outline'} className="capitalize">
+                        {feedback.status}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm whitespace-pre-wrap break-words">{feedback.message}</p>
+                      {feedback.status === 'read' && feedback.resolvedAt && (
+                        <p className="text-xs text-muted-foreground">Reviewed {formatTimestamp(feedback.resolvedAt)}</p>
+                      )}
+                      {feedback.status === 'new' && (
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkFeedbackRead(feedback.id)}
+                            disabled={processingFeedbackId === feedback.id || loading}
+                          >
+                            {processingFeedbackId === feedback.id ? 'Marking…' : 'Mark as read'}
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
             <Separator />

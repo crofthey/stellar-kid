@@ -1,5 +1,5 @@
 import { Entity, IndexedEntity, Env } from "./core-utils";
-import type { ChartWeek, DayState, SlotState, WeekData, User, Child, PrizeTarget, PasswordResetRequest } from "@shared/types";
+import type { ChartWeek, DayState, SlotState, WeekData, User, Child, PrizeTarget, PasswordResetRequest, FeedbackMessage } from "@shared/types";
 import { hashPassword } from './auth';
 // USER (PARENT) ENTITY
 export class UserEntity extends IndexedEntity<User> {
@@ -230,6 +230,18 @@ export class PasswordResetRequestEntity extends IndexedEntity<PasswordResetReque
         email: "",
         createdAt: 0,
         status: 'pending',
+    };
+}
+
+export class FeedbackMessageEntity extends IndexedEntity<FeedbackMessage> {
+    static readonly entityName = "feedback-message";
+    static readonly indexName = "feedback-messages";
+    static readonly initialState: FeedbackMessage = {
+        id: "",
+        email: "",
+        message: "",
+        createdAt: 0,
+        status: 'new',
     };
 }
 // STELLARKID CHART ENTITY

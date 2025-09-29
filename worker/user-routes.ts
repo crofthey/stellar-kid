@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Env } from './core-utils';
-import { UserEntity, ChildEntity, ChartWeekEntity, SystemStatsEntity, PasswordResetRequestEntity } from "./entities";
+import { UserEntity, ChildEntity, ChartWeekEntity, SystemStatsEntity, PasswordResetRequestEntity, FeedbackMessageEntity } from "./entities";
 import { ok, bad, isStr, Index, notFound } from './core-utils';
 import { hashPassword, verifyPassword, signToken, authMiddleware } from './auth';
 import type { SlotState, Child, UserResponse, PrizeTarget, DayState, WeekData, AdminStats, AdminAccountSummary } from "@shared/types";
@@ -245,6 +245,30 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const updatedSettings = await child.decrementPrizes();
     return ok(c, updatedSettings);
   });
+  protectedRoutes.post('/feedback', async (c) => {
+    const authUser = c.get('user');
+    const { message } = await c.req.json<{ message?: string }>();
+    if (!isStr(message)) {
+      return bad(c, 'Feedback message is required.');
+    }
+    const trimmed = message.trim();
+    if (trimmed.length < 5) {
+      return bad(c, 'Please provide a bit more detail so we can help.');
+    }
+    if (trimmed.length > 1000) {
+      return bad(c, 'Feedback must be shorter than 1000 characters.');
+    }
+    const userState = await authUser.getState();
+    const feedbackId = crypto.randomUUID();
+    await FeedbackMessageEntity.create(c.env, {
+      id: feedbackId,
+      email: userState.email,
+      message: trimmed,
+      createdAt: Date.now(),
+      status: 'new',
+    });
+    return ok(c, { message: 'Thanks for the feedback!' });
+  });
   protectedRoutes.post('/auth/change-password', async (c) => {
     const authUser = c.get('user');
     const { currentPassword, newPassword } = await c.req.json<{ currentPassword?: string; newPassword?: string }>();
@@ -371,6 +395,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     }).sort((a, b) => (b.lastLoginAt ?? 0) - (a.lastLoginAt ?? 0));
 
     const { items: resetRequestsRaw } = await PasswordResetRequestEntity.list(c.env);
+    const { items: feedbackRaw } = await FeedbackMessageEntity.list(c.env);
 
     const payload: AdminStats = {
       totalAccounts: users.length,
@@ -382,6 +407,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       lastLoginEmail,
       accounts,
       resetRequests: resetRequestsRaw.sort((a, b) => b.createdAt - a.createdAt),
+      feedbackMessages: feedbackRaw.sort((a, b) => b.createdAt - a.createdAt),
     };
     return ok(c, payload);
   });
@@ -413,6 +439,23 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       resolvedBy: 'admin',
     });
     return ok(c, { message: 'Password updated successfully.' });
+  });
+
+  app.post('/api/admin/feedback/:feedbackId/read', async (c) => {
+    requireAdminKey(c);
+    const { feedbackId } = c.req.param();
+    const feedback = new FeedbackMessageEntity(c.env, feedbackId);
+    if (!(await feedback.exists())) {
+      return notFound(c, 'Feedback not found.');
+    }
+    const state = await feedback.getState();
+    await feedback.save({
+      ...state,
+      status: 'read',
+      resolvedAt: Date.now(),
+      resolvedBy: 'admin',
+    });
+    return ok(c, { message: 'Feedback marked as read.' });
   });
 
   app.route('/api', protectedRoutes);

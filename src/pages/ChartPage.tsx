@@ -205,9 +205,6 @@ export function ChartPage() {
             })}
           </div>
         )}
-        <footer className="text-center mt-16 text-muted-foreground">
-          <p>Built with ❤️ at Cloudflare</p>
-        </footer>
       </div>
       <Toaster richColors closeButton />
       <AddToHomeBanner />

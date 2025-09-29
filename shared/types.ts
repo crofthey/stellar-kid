@@ -81,6 +81,7 @@ export interface AdminStats {
     lastLoginEmail: string | null;
     accounts: AdminAccountSummary[];
     resetRequests: PasswordResetRequest[];
+    feedbackMessages: FeedbackMessage[];
 }
 
 export interface AdminAccountSummary {
@@ -100,6 +101,18 @@ export interface PasswordResetRequest {
     email: string;
     createdAt: number;
     status: PasswordResetRequestStatus;
+    resolvedAt?: number;
+    resolvedBy?: string;
+}
+
+export type FeedbackStatus = 'new' | 'read';
+
+export interface FeedbackMessage {
+    id: string;
+    email: string;
+    message: string;
+    createdAt: number;
+    status: FeedbackStatus;
     resolvedAt?: number;
     resolvedBy?: string;
 }

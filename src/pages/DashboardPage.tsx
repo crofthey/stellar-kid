@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, PlusCircle, Star, LogOut, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
@@ -21,6 +22,8 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { ChildListItem } from '@/components/ChildListItem';
 import { ParentSettingsMenu } from '@/components/ParentSettingsMenu';
+import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
 export function DashboardPage() {
   const navigate = useNavigate();
   const { isAuthenticated, isInitialized, logout, isLoading: isAuthLoading } = useAuthStore(
@@ -42,6 +45,8 @@ export function DashboardPage() {
   );
   const [newChildName, setNewChildName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   useEffect(() => {
     if (isInitialized && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -61,6 +66,29 @@ export function DashboardPage() {
       setIsCreating(false);
     }
   };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = feedbackMessage.trim();
+    if (trimmed.length < 5 || isSubmittingFeedback) {
+      return;
+    }
+    setIsSubmittingFeedback(true);
+    try {
+      await api('/api/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ message: trimmed }),
+      });
+      toast.success('Thanks for sharing your thoughts!');
+      setFeedbackMessage('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to send feedback right now.';
+      toast.error(message);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+  const canSubmitFeedback = feedbackMessage.trim().length >= 5;
   if (!isInitialized || isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -151,6 +179,36 @@ export function DashboardPage() {
                   No children added yet. Add one to get started!
                 </p>
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Share Feedback</CardTitle>
+              <CardDescription>Tell us what is working or what needs attention.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmitFeedback} className="space-y-3">
+                <Textarea
+                  placeholder="Share feedback or feature requests (min. 5 characters)"
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  rows={5}
+                  maxLength={1000}
+                  disabled={isSubmittingFeedback}
+                />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{feedbackMessage.length}/1000</span>
+                  <span>We will review each submission personally.</span>
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={!canSubmitFeedback || isSubmittingFeedback}>
+                    {isSubmittingFeedback ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    {isSubmittingFeedback ? 'Sending…' : 'Send Feedback'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
