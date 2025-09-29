@@ -10,12 +10,13 @@ import { WeekNavigator } from '@/components/WeekNavigator';
 import { DayCard } from '@/components/DayCard';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { EditableChildName } from '@/components/EditableChildName';
-import { PrizePurse } from '@/components/PrizePurse';
+import { PrizeBox } from '@/components/PrizeBox';
 import { useChartTheme } from '@/hooks/use-chart-theme';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { PrizeTargetProgress } from '@/components/PrizeTargetProgress';
+import { WALLPAPER_LOOKUP } from '@/config/wallpapers';
 function ChartGridSkeleton() {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 md:gap-4">
@@ -106,13 +107,41 @@ export function ChartPage() {
       </div>
     );
   }
+  const backgroundPattern = selectedChild.backgroundPattern ?? 'confetti';
+  const wallpaper = WALLPAPER_LOOKUP[backgroundPattern];
+  const tileStyle = {
+    backgroundSize: wallpaper.tileSize,
+    ['--wallpaper-light' as const]: `url('${wallpaper.lightPattern}')`,
+    ['--wallpaper-dark' as const]: `url('${wallpaper.darkPattern}')`,
+  } satisfies React.CSSProperties;
+  const overlayStyle = {
+    ['--overlay-light' as const]: wallpaper.lightOverlay,
+    ['--overlay-dark' as const]: wallpaper.darkOverlay,
+  } satisfies React.CSSProperties;
+  const radialStyle = {
+    ['--radial-light' as const]: wallpaper.lightRadial,
+    ['--radial-dark' as const]: wallpaper.darkRadial,
+  } satisfies React.CSSProperties;
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-foreground relative transition-colors duration-300">
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_1px_1px,_hsl(var(--stellar-blue)/0.1)_1px,_transparent_0)] [background-size:20px_20px] -z-0"></div>
+      <div className="absolute inset-0 pointer-events-none -z-0">
+        <div
+          className="absolute inset-0 bg-[image:var(--wallpaper-light)] dark:bg-[image:var(--wallpaper-dark)] bg-repeat"
+          style={tileStyle}
+        />
+        <div
+          className="absolute inset-0 bg-[image:var(--overlay-light)] dark:bg-[image:var(--overlay-dark)]"
+          style={overlayStyle}
+        />
+        <div
+          className="absolute inset-0 bg-[image:var(--radial-light)] dark:bg-[image:var(--radial-dark)]"
+          style={radialStyle}
+        />
+      </div>
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <header className="flex flex-wrap items-center justify-between gap-y-4 gap-x-6 mb-4">
           <div className="w-full sm:w-auto flex-shrink-0 order-2 sm:order-1">
-            <PrizePurse />
+            <PrizeBox />
           </div>
           <div className="text-center w-full sm:w-auto flex-grow order-1 sm:order-2">
             <EditableChildName />

@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { getWeekInfo } from '@/lib/dateUtils';
-import type { ChartWeek, SlotState, WeekData, Child, CreateChildResponse, PrizeTarget, UpdateSlotResponse } from '@shared/types';
+import type { ChartWeek, SlotState, WeekData, Child, CreateChildResponse, PrizeTarget, UpdateSlotResponse, ResetChartResponse } from '@shared/types';
 import { useAuthStore } from './authStore';
 type ChartState = {
   children: Child[];
@@ -21,9 +21,9 @@ type ChartActions = {
   setDate: (date: Date) => void;
   fetchWeekData: (date: Date, childId: string) => Promise<void>;
   updateSlotState: (dayIndex: number, slotIndex: number, currentState: SlotState) => Promise<void>;
-  updateChildSettings: (settings: Partial<Pick<Child, 'name' | 'prizeMode'>>) => Promise<void>;
+  updateChildSettings: (settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>) => Promise<void>;
   incrementPrizes: () => Promise<void>;
-  resetCurrentWeek: () => Promise<void>;
+  resetChart: () => Promise<void>;
   addPrizeTarget: (target: Omit<PrizeTarget, 'id' | 'childId' | 'isAchieved'>) => Promise<void>;
   updatePrizeTarget: (targetId: string, updates: Partial<Omit<PrizeTarget, 'id' | 'childId'>>) => Promise<void>;
   deletePrizeTarget: (targetId: string) => Promise<void>;
@@ -52,6 +52,9 @@ const initialState: ChartState = {
   isFetchingChildren: false,
   isUpdating: {},
 };
+const ensureBackground = (child: Child): Child => (
+  child.backgroundPattern ? child : { ...child, backgroundPattern: 'confetti' }
+);
 export const useChartStore = create<ChartState & ChartActions>()(
   immer((set, get) => ({
     ...initialState,
@@ -59,7 +62,7 @@ export const useChartStore = create<ChartState & ChartActions>()(
       set({ isFetchingChildren: true });
       try {
         const children = await api<Child[]>('/api/children');
-        set({ children });
+        set({ children: children.map(ensureBackground) });
       } catch (error) {
         toast.error('Could not load children.');
       } finally {
@@ -69,7 +72,7 @@ export const useChartStore = create<ChartState & ChartActions>()(
     selectChild: (childId) => {
       const child = get().children.find(c => c.id === childId);
       if (child) {
-        set({ selectedChild: child, weekData: null, isLoading: true });
+        set({ selectedChild: ensureBackground(child), weekData: null, isLoading: true });
       }
     },
     createChild: async (name) => {
@@ -79,7 +82,7 @@ export const useChartStore = create<ChartState & ChartActions>()(
           body: JSON.stringify({ name }),
         });
         set(state => {
-          state.children.push(response.child);
+          state.children.push(ensureBackground(response.child));
         });
         useAuthStore.getState().setUser(response.user);
         toast.success(`'${name}' has been added!`);
@@ -147,8 +150,12 @@ export const useChartStore = create<ChartState & ChartActions>()(
     updateChildSettings: async (settings) => {
       const child = get().selectedChild;
       if (!child) return;
-      const originalChild = { ...child };
-      const updatedChild = { ...child, ...settings };
+      const originalChild = ensureBackground(child);
+      const updatedChild = {
+        ...child,
+        ...settings,
+        backgroundPattern: settings.backgroundPattern ?? child.backgroundPattern ?? 'confetti',
+      };
       set({ selectedChild: updatedChild });
       try {
         await api<Child>(`/api/children/${child.id}/settings`, {
@@ -173,29 +180,44 @@ export const useChartStore = create<ChartState & ChartActions>()(
           method: 'POST',
         });
         set(state => {
-            state.selectedChild = updatedChild;
+            const ensured = ensureBackground(updatedChild);
+            state.selectedChild = ensured;
             const childIndex = state.children.findIndex(c => c.id === childId);
-            if (childIndex !== -1) state.children[childIndex] = updatedChild;
+            if (childIndex !== -1) state.children[childIndex] = ensured;
         });
       } catch (error) {
         toast.error('Could not update prize count.');
       }
     },
-    resetCurrentWeek: async () => {
+    resetChart: async () => {
       const childId = get().selectedChild?.id;
       if (!childId) return;
       const originalState = get().weekData;
+      const originalChild = get().selectedChild;
       set({ isLoading: true });
       try {
         const { year, week } = getWeekInfo(get().currentDate);
-        const response = await api<ChartWeek>(`/api/children/${childId}/chart/${year}/${week}/reset`, {
+        const response = await api<ResetChartResponse>(`/api/children/${childId}/chart/${year}/${week}/reset`, {
           method: 'POST',
         });
-        set({ weekData: response.data, isLoading: false });
-        toast.success('Week has been reset!');
+        set((state) => {
+          const ensured = ensureBackground(response.child);
+          state.weekData = response.chartWeek.data;
+          state.isLoading = false;
+          state.selectedChild = ensured;
+          const childIndex = state.children.findIndex((c) => c.id === childId);
+          if (childIndex !== -1) {
+            state.children[childIndex] = ensured;
+          }
+        });
+        toast.success('Chart has been reset!');
       } catch (error) {
-        toast.error('Could not reset the week.');
-        set({ weekData: originalState, isLoading: false });
+        toast.error('Could not reset the chart.');
+        set((state) => {
+          state.weekData = originalState;
+          state.selectedChild = originalChild;
+          state.isLoading = false;
+        });
       }
     },
     addPrizeTarget: async (target) => {
@@ -206,9 +228,10 @@ export const useChartStore = create<ChartState & ChartActions>()(
                 method: 'POST', body: JSON.stringify(target)
             });
             set(state => {
-                state.selectedChild = updatedChild;
+                const ensured = ensureBackground(updatedChild);
+                state.selectedChild = ensured;
                 const childIndex = state.children.findIndex(c => c.id === childId);
-                if (childIndex !== -1) state.children[childIndex] = updatedChild;
+                if (childIndex !== -1) state.children[childIndex] = ensured;
             });
             toast.success('Prize target added!');
         } catch (error) { toast.error('Failed to add prize target.'); }
@@ -221,9 +244,10 @@ export const useChartStore = create<ChartState & ChartActions>()(
                 method: 'PUT', body: JSON.stringify(updates)
             });
             set(state => {
-                state.selectedChild = updatedChild;
+                const ensured = ensureBackground(updatedChild);
+                state.selectedChild = ensured;
                 const childIndex = state.children.findIndex(c => c.id === childId);
-                if (childIndex !== -1) state.children[childIndex] = updatedChild;
+                if (childIndex !== -1) state.children[childIndex] = ensured;
             });
             toast.success('Prize target updated!');
         } catch (error) { toast.error('Failed to update prize target.'); }
@@ -236,9 +260,10 @@ export const useChartStore = create<ChartState & ChartActions>()(
                 method: 'DELETE'
             });
             set(state => {
-                state.selectedChild = updatedChild;
+                const ensured = ensureBackground(updatedChild);
+                state.selectedChild = ensured;
                 const childIndex = state.children.findIndex(c => c.id === childId);
-                if (childIndex !== -1) state.children[childIndex] = updatedChild;
+                if (childIndex !== -1) state.children[childIndex] = ensured;
             });
             toast.success('Prize target removed.');
         } catch (error) { toast.error('Failed to remove prize target.'); }

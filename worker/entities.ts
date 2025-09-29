@@ -55,38 +55,60 @@ export class ChildEntity extends IndexedEntity<Child> {
         prizeTargets: [],
         totalStars: 0,
         totalPerfectDays: 0,
+        backgroundPattern: 'confetti',
     };
-    async updateSettings(settings: Partial<Pick<Child, 'name' | 'prizeMode'>>): Promise<Child> {
-        return this.mutate(s => ({ ...s, ...settings }));
+    private static ensureBackground(state: Child): Child {
+        return state.backgroundPattern ? state : { ...state, backgroundPattern: 'confetti' };
+    }
+    async updateSettings(settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>): Promise<Child> {
+        return this.mutate(s => ChildEntity.ensureBackground({
+            ...s,
+            ...settings,
+            backgroundPattern: settings.backgroundPattern ?? s.backgroundPattern ?? 'confetti',
+        }));
     }
     async incrementPrizes(): Promise<Child> {
-        return this.mutate(s => ({ ...s, prizeCount: (s.prizeCount || 0) + 1 }));
+        return this.mutate(s => ChildEntity.ensureBackground({
+            ...s,
+            prizeCount: (s.prizeCount || 0) + 1,
+        }));
     }
     async addPrizeTarget(target: PrizeTarget): Promise<Child> {
-        return this.mutate(s => ({ ...s, prizeTargets: [...(s.prizeTargets || []), target] }));
+        return this.mutate(s => {
+            const base = ChildEntity.ensureBackground(s);
+            return ChildEntity.ensureBackground({
+                ...base,
+                prizeTargets: [...(base.prizeTargets || []), target],
+            });
+        });
     }
     async updatePrizeTarget(targetId: string, updates: Partial<Omit<PrizeTarget, 'id' | 'childId'>>): Promise<Child> {
         return this.mutate(s => {
-            const targets = s.prizeTargets || [];
+            const base = ChildEntity.ensureBackground(s);
+            const targets = base.prizeTargets || [];
             const targetIndex = targets.findIndex(t => t.id === targetId);
-            if (targetIndex === -1) return s;
+            if (targetIndex === -1) return base;
             const updatedTarget = { ...targets[targetIndex], ...updates };
             const newTargets = [...targets];
             newTargets[targetIndex] = updatedTarget;
-            return { ...s, prizeTargets: newTargets };
+            return ChildEntity.ensureBackground({ ...base, prizeTargets: newTargets });
         });
     }
     async deletePrizeTarget(targetId: string): Promise<Child> {
-        return this.mutate(s => ({
-            ...s,
-            prizeTargets: (s.prizeTargets || []).filter(t => t.id !== targetId),
-        }));
+        return this.mutate(s => {
+            const base = ChildEntity.ensureBackground(s);
+            return ChildEntity.ensureBackground({
+                ...base,
+                prizeTargets: (base.prizeTargets || []).filter(t => t.id !== targetId),
+            });
+        });
     }
     async updateStats(starDelta: number, perfectDayDelta: number): Promise<Child> {
         return this.mutate(s => {
-            const newTotalStars = (s.totalStars || 0) + starDelta;
-            const newTotalPerfectDays = (s.totalPerfectDays || 0) + perfectDayDelta;
-            const updatedTargets = (s.prizeTargets || []).map(target => {
+            const base = ChildEntity.ensureBackground(s);
+            const newTotalStars = (base.totalStars || 0) + starDelta;
+            const newTotalPerfectDays = (base.totalPerfectDays || 0) + perfectDayDelta;
+            const updatedTargets = (base.prizeTargets || []).map(target => {
                 if (target.isAchieved) return target;
                 const progress = target.type === 'stars' ? newTotalStars : newTotalPerfectDays;
                 if (progress >= target.targetCount) {
@@ -94,20 +116,39 @@ export class ChildEntity extends IndexedEntity<Child> {
                 }
                 return target;
             });
-            return {
-                ...s,
+            return ChildEntity.ensureBackground({
+                ...base,
                 totalStars: newTotalStars,
                 totalPerfectDays: newTotalPerfectDays,
                 prizeTargets: updatedTargets,
-            };
+            });
+        });
+    }
+    async resetChartProgress(): Promise<Child> {
+        return this.mutate(s => {
+            const base = ChildEntity.ensureBackground(s);
+            return ChildEntity.ensureBackground({
+                ...base,
+                prizeCount: 0,
+                totalStars: 0,
+                totalPerfectDays: 0,
+                prizeTargets: (base.prizeTargets || []).map(target => ({
+                    ...target,
+                    isAchieved: false,
+                    achievedAt: undefined,
+                })),
+            });
         });
     }
 }
 // STELLARKID CHART ENTITY
-const initialWeekData: WeekData = Array.from({ length: 7 }).reduce((acc: WeekData, _, i) => {
-    acc[i] = ['empty', 'empty', 'empty'] as DayState;
-    return acc;
-}, {} as WeekData);
+const createInitialWeekData = (): WeekData => {
+    return Array.from({ length: 7 }).reduce((acc: WeekData, _, i) => {
+        acc[i] = ['empty', 'empty', 'empty'] as DayState;
+        return acc;
+    }, {} as WeekData);
+};
+const initialWeekData: WeekData = createInitialWeekData();
 export class ChartWeekEntity extends Entity<ChartWeek> {
     static readonly entityName = "chart-week";
     static readonly initialState: ChartWeek = { id: "", data: initialWeekData };
@@ -136,8 +177,9 @@ export class ChartWeekEntity extends Entity<ChartWeek> {
         });
     }
     async resetWeek(): Promise<ChartWeek> {
-        return this.mutate(s => {
-            return { ...s, data: initialWeekData };
-        });
+        return this.mutate(s => ({
+            ...s,
+            data: createInitialWeekData(),
+        }));
     }
 }

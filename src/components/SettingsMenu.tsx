@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Moon, Paintbrush, CalendarDays, CalendarRange, RotateCcw, AlertTriangle, Trophy } from 'lucide-react';
+import { Settings, Moon, Paintbrush, CalendarDays, CalendarRange, RotateCcw, AlertTriangle, Trophy, Image } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,26 +18,51 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useTheme } from '@/hooks/use-theme';
 import { useChartTheme } from '@/hooks/use-chart-theme';
 import { useChartStore } from '@/stores/chartStore';
 import { cn } from '@/lib/utils';
 import { PrizeTargetManager } from './PrizeTargetManager';
+import { WALLPAPER_OPTIONS } from '@/config/wallpapers';
+import type { BackgroundPattern } from '@shared/types';
 export function SettingsMenu() {
   const { isDark, toggleTheme } = useTheme();
   const { activeTheme, setTheme, themes } = useChartTheme();
-  const { selectedChild, updateChildSettings, resetCurrentWeek } = useChartStore(
+  const { selectedChild, updateChildSettings, resetChart } = useChartStore(
     useShallow((state) => ({
       selectedChild: state.selectedChild,
       updateChildSettings: state.updateChildSettings,
-      resetCurrentWeek: state.resetCurrentWeek,
+      resetChart: state.resetChart,
     }))
   );
+  const [isBackgroundDialogOpen, setBackgroundDialogOpen] = React.useState(false);
   const handlePrizeModeChange = (value: 'daily' | 'weekly') => {
     if (value && selectedChild && value !== selectedChild.prizeMode) {
       updateChildSettings({ prizeMode: value });
     }
   };
+  const handleBackgroundChange = (value: BackgroundPattern) => {
+    if (!selectedChild || value === (selectedChild.backgroundPattern ?? 'confetti')) return;
+    updateChildSettings({ backgroundPattern: value });
+    setBackgroundDialogOpen(false);
+  };
+  const currentBackground = selectedChild.backgroundPattern ?? 'confetti';
+  const currentWallpaper = WALLPAPER_OPTIONS.find((option) => option.id === currentBackground);
+  const previewStyle = currentWallpaper
+    ? ({
+        backgroundSize: currentWallpaper.tileSize,
+        ['--preview-light' as const]: `url('${currentWallpaper.lightPattern}')`,
+        ['--preview-dark' as const]: `url('${currentWallpaper.darkPattern}')`,
+      } satisfies React.CSSProperties)
+    : undefined;
   if (!selectedChild) return null;
   return (
     <Popover>
@@ -84,6 +109,74 @@ export function SettingsMenu() {
         </div>
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
+            <Image className="h-4 w-4" />
+            <span>Background</span>
+          </Label>
+          <Dialog open={isBackgroundDialogOpen} onOpenChange={setBackgroundDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start gap-3"
+              >
+                <div
+                  className="h-10 w-10 rounded-lg border border-border/60 bg-[image:var(--preview-light)] dark:bg-[image:var(--preview-dark)] bg-repeat"
+                  style={previewStyle}
+                />
+                <div className="text-left">
+                  <p className="text-sm font-medium">
+                    {currentWallpaper ? currentWallpaper.name : 'Choose background'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tap to explore wallpaper choices
+                  </p>
+                </div>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Choose a Background</DialogTitle>
+                <DialogDescription>
+                  Each child can pick their own wallpaper. Changes apply right away.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {WALLPAPER_OPTIONS.map((option) => {
+                  const isActive = option.id === currentBackground;
+                  const style = {
+                    backgroundSize: option.tileSize,
+                    ['--preview-light' as const]: `url('${option.lightPattern}')`,
+                    ['--preview-dark' as const]: `url('${option.darkPattern}')`,
+                  } satisfies React.CSSProperties;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleBackgroundChange(option.id)}
+                      className={cn(
+                        'relative overflow-hidden rounded-xl border border-border/60 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                        isActive ? `ring-2 ring-offset-2 ring-offset-background ${option.accentClass}` : 'hover:border-primary/40'
+                      )}
+                      aria-pressed={isActive}
+                    >
+                      <div
+                        className="absolute inset-0 bg-[image:var(--preview-light)] dark:bg-[image:var(--preview-dark)] bg-repeat"
+                        style={style}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/40 to-transparent dark:from-gray-900/70 dark:via-gray-900/40 dark:to-transparent" />
+                      <div className="relative z-10 p-4">
+                        <p className="text-sm font-semibold">{option.name}</p>
+                        <p className="text-xs text-muted-foreground leading-snug">{option.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             <span>Prize Mode</span>
           </Label>
@@ -114,7 +207,7 @@ export function SettingsMenu() {
           <AlertDialogTrigger asChild>
             <Button variant="destructive" className="w-full">
               <RotateCcw className="h-4 w-4 mr-2" />
-              Reset This Week
+              Reset Chart
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -124,13 +217,13 @@ export function SettingsMenu() {
                 Are you absolutely sure?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently reset all stars and crosses for the current week. This action cannot be undone.
+                This will permanently clear every star from the chart and reset the prize box. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => resetCurrentWeek()}>
-                Yes, reset week
+              <AlertDialogAction onClick={() => resetChart()}>
+                Yes, reset chart
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

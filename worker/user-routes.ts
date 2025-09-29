@@ -175,17 +175,22 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const weekId = getWeekId(childId, year, week);
     const chartWeek = new ChartWeekEntity(c.env, weekId);
     const resetData = await chartWeek.resetWeek();
-    return ok(c, resetData);
+    const child = new ChildEntity(c.env, childId);
+    const updatedChild = await child.resetChartProgress();
+    return ok(c, { chartWeek: resetData, child: updatedChild });
   });
   // --- CHILD-SPECIFIC SETTINGS ROUTES ---
   protectedRoutes.post('/children/:childId/settings', async (c) => {
     const { childId } = c.req.param();
-    const settingsUpdate = await c.req.json<Partial<Pick<Child, 'name' | 'prizeMode'>>>();
+    const settingsUpdate = await c.req.json<Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>>();
     if (settingsUpdate.name !== undefined && !isStr(settingsUpdate.name)) {
         return bad(c, 'name must be a non-empty string');
     }
     if (settingsUpdate.prizeMode !== undefined && !['daily', 'weekly'].includes(settingsUpdate.prizeMode)) {
         return bad(c, 'Invalid prizeMode');
+    }
+    if (settingsUpdate.backgroundPattern !== undefined && !['confetti', 'rainbow', 'meadow', 'ocean'].includes(settingsUpdate.backgroundPattern)) {
+        return bad(c, 'Invalid background option');
     }
     const child = new ChildEntity(c.env, childId);
     const updatedSettings = await child.updateSettings(settingsUpdate);

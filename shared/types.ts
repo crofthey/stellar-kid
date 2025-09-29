@@ -29,6 +29,7 @@ export interface PrizeTarget {
     achievedAt?: number;
 }
 // Child
+export type BackgroundPattern = 'confetti' | 'rainbow' | 'meadow' | 'ocean';
 export interface Child {
     id: string;
     parentId: string;
@@ -38,6 +39,7 @@ export interface Child {
     prizeTargets: PrizeTarget[];
     totalStars: number;
     totalPerfectDays: number;
+    backgroundPattern: BackgroundPattern;
 }
 export interface CreateChildResponse {
     child: Child;
@@ -57,4 +59,9 @@ export interface ChartWeek {
 export interface UpdateSlotResponse {
     chartWeek: ChartWeek;
     child?: Child;
+}
+
+export interface ResetChartResponse {
+    chartWeek: ChartWeek;
+    child: Child;
 }
