@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { getWeekInfo } from '@/lib/dateUtils';
-import type { ChartWeek, SlotState, WeekData, Child, CreateChildResponse, PrizeTarget, UpdateSlotResponse, ResetChartResponse } from '@shared/types';
+import type { ChartWeek, SlotState, WeekData, DayState, Child, CreateChildResponse, PrizeTarget, UpdateSlotResponse, ResetChartResponse } from '@shared/types';
 import { useAuthStore } from './authStore';
 type ChartState = {
   children: Child[];
@@ -23,6 +23,7 @@ type ChartActions = {
   updateSlotState: (dayIndex: number, slotIndex: number, currentState: SlotState) => Promise<void>;
   updateChildSettings: (settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>) => Promise<void>;
   incrementPrizes: () => Promise<void>;
+  decrementPrizes: () => Promise<void>;
   resetChart: () => Promise<void>;
   addPrizeTarget: (target: Omit<PrizeTarget, 'id' | 'childId' | 'isAchieved'>) => Promise<void>;
   updatePrizeTarget: (targetId: string, updates: Partial<Omit<PrizeTarget, 'id' | 'childId'>>) => Promise<void>;
@@ -52,9 +53,11 @@ const initialState: ChartState = {
   isFetchingChildren: false,
   isUpdating: {},
 };
-const ensureBackground = (child: Child): Child => (
-  child.backgroundPattern ? child : { ...child, backgroundPattern: 'confetti' }
-);
+const ensureBackground = (child: Child): Child => ({
+  ...child,
+  backgroundPattern: child.backgroundPattern ?? 'confetti',
+  totalPerfectWeeks: child.totalPerfectWeeks ?? 0,
+});
 export const useChartStore = create<ChartState & ChartActions>()(
   immer((set, get) => ({
     ...initialState,
@@ -145,7 +148,9 @@ export const useChartStore = create<ChartState & ChartActions>()(
       set((state) => {
         if (state.weekData) {
           const clonedWeek: WeekData = { ...state.weekData };
-          const clonedDay = [...clonedWeek[dayIndex]] as SlotState[];
+          const currentDay = clonedWeek[dayIndex];
+          if (!currentDay) return;
+          const clonedDay = [...currentDay] as SlotState[];
           clonedDay[slotIndex] = nextState;
           clonedWeek[dayIndex] = clonedDay as DayState;
           state.weekData = clonedWeek;
@@ -188,12 +193,20 @@ export const useChartStore = create<ChartState & ChartActions>()(
             });
         }
         const prizeMode = get().selectedChild?.prizeMode;
-        if (prizeMode === 'daily' && !wasDayPerfectBefore && isDayPerfectAfter) {
-          toast.success("Perfect Day! You've earned a prize! 🌟");
-          await get().incrementPrizes();
-        } else if (prizeMode === 'weekly' && !wasWeekPerfectBefore && isWeekPerfectAfter) {
-          toast.success("🎉 Perfect Week! You've earned a prize! 🎉");
-          await get().incrementPrizes();
+        if (prizeMode === 'daily') {
+          if (!wasDayPerfectBefore && isDayPerfectAfter) {
+            toast.success("Perfect Day! You've earned a prize! 🌟");
+            await get().incrementPrizes();
+          } else if (wasDayPerfectBefore && !isDayPerfectAfter) {
+            await get().decrementPrizes();
+          }
+        } else if (prizeMode === 'weekly') {
+          if (!wasWeekPerfectBefore && isWeekPerfectAfter) {
+            toast.success("🎉 Perfect Week! You've earned a prize! 🎉");
+            await get().incrementPrizes();
+          } else if (wasWeekPerfectBefore && !isWeekPerfectAfter) {
+            await get().decrementPrizes();
+          }
         }
       } catch (error) {
         toast.error('Failed to save change. Reverting.');
@@ -217,20 +230,27 @@ export const useChartStore = create<ChartState & ChartActions>()(
       const child = get().selectedChild;
       if (!child) return;
       const originalChild = ensureBackground(child);
-      const updatedChild = {
+      const updatedChild = ensureBackground({
         ...child,
         ...settings,
         backgroundPattern: settings.backgroundPattern ?? child.backgroundPattern ?? 'confetti',
-      };
+      });
+      if (settings.prizeMode) {
+        updatedChild.prizeCount = settings.prizeMode === 'daily'
+          ? updatedChild.totalPerfectDays || 0
+          : updatedChild.totalPerfectWeeks || 0;
+      }
       set({ selectedChild: updatedChild });
       try {
-        await api<Child>(`/api/children/${child.id}/settings`, {
+        const serverChild = await api<Child>(`/api/children/${child.id}/settings`, {
           method: 'POST',
           body: JSON.stringify(settings),
         });
         set(state => {
             const childIndex = state.children.findIndex(c => c.id === child.id);
-            if (childIndex !== -1) state.children[childIndex] = updatedChild;
+            const ensured = ensureBackground(serverChild);
+            state.selectedChild = ensured;
+            if (childIndex !== -1) state.children[childIndex] = ensured;
         });
         toast.success('Settings updated!');
       } catch (error) {
@@ -243,6 +263,24 @@ export const useChartStore = create<ChartState & ChartActions>()(
       if (!childId) return;
       try {
         const updatedChild = await api<Child>(`/api/children/${childId}/prizes/increment`, {
+          method: 'POST',
+        });
+        set(state => {
+            const ensured = ensureBackground(updatedChild);
+            state.selectedChild = ensured;
+            const childIndex = state.children.findIndex(c => c.id === childId);
+            if (childIndex !== -1) state.children[childIndex] = ensured;
+        });
+      } catch (error) {
+        toast.error('Could not update prize count.');
+      }
+    },
+    decrementPrizes: async () => {
+      const childId = get().selectedChild?.id;
+      if (!childId) return;
+      if ((get().selectedChild?.prizeCount || 0) === 0) return;
+      try {
+        const updatedChild = await api<Child>(`/api/children/${childId}/prizes/decrement`, {
           method: 'POST',
         });
         set(state => {

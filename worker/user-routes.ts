@@ -4,12 +4,17 @@ import type { Env } from './core-utils';
 import { UserEntity, ChildEntity, ChartWeekEntity } from "./entities";
 import { ok, bad, isStr, Index, notFound } from './core-utils';
 import { hashPassword, verifyPassword, signToken, authMiddleware } from './auth';
-import type { SlotState, Child, UserResponse, PrizeTarget, DayState } from "@shared/types";
+import type { SlotState, Child, UserResponse, PrizeTarget, DayState, WeekData } from "@shared/types";
 type AuthVariables = {
     user: UserEntity;
 };
 const isDayPerfect = (dayState: DayState | undefined): boolean => {
   return !!dayState && dayState.length === 3 && dayState.every((slot) => slot === 'star');
+};
+const isWeekPerfect = (weekData: WeekData | Record<number, DayState>): boolean => {
+  const days = Object.values(weekData || {});
+  const allSlots = days.flat();
+  return allSlots.length === 21 && allSlots.every((slot) => slot === 'star');
 };
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- PUBLIC AUTH ROUTES ---
@@ -155,18 +160,23 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const oldWeekState = await chartWeek.getState();
     const oldSlotState = oldWeekState.data[dayIndex]?.[slotIndex] || 'empty';
     const wasDayPerfectBefore = isDayPerfect(oldWeekState.data[dayIndex]);
+    const wasWeekPerfectBefore = isWeekPerfect(oldWeekState.data);
     const updatedWeek = await chartWeek.updateSlot(dayIndex, slotIndex, newState);
     const isDayPerfectAfter = isDayPerfect(updatedWeek.data[dayIndex]);
+    const isWeekPerfectAfter = isWeekPerfect(updatedWeek.data);
     let starDelta = 0;
     if (oldSlotState !== 'star' && newState === 'star') starDelta = 1;
     else if (oldSlotState === 'star' && newState !== 'star') starDelta = -1;
     let perfectDayDelta = 0;
     if (!wasDayPerfectBefore && isDayPerfectAfter) perfectDayDelta = 1;
     else if (wasDayPerfectBefore && !isDayPerfectAfter) perfectDayDelta = -1;
+    let perfectWeekDelta = 0;
+    if (!wasWeekPerfectBefore && isWeekPerfectAfter) perfectWeekDelta = 1;
+    else if (wasWeekPerfectBefore && !isWeekPerfectAfter) perfectWeekDelta = -1;
     let updatedChild: Child | undefined;
-    if (starDelta !== 0 || perfectDayDelta !== 0) {
+    if (starDelta !== 0 || perfectDayDelta !== 0 || perfectWeekDelta !== 0) {
         const child = new ChildEntity(c.env, childId);
-        updatedChild = await child.updateStats(starDelta, perfectDayDelta);
+        updatedChild = await child.updateStats(starDelta, perfectDayDelta, perfectWeekDelta);
     }
     return ok(c, { chartWeek: updatedWeek, child: updatedChild });
   });
@@ -202,15 +212,21 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const updatedSettings = await child.incrementPrizes();
     return ok(c, updatedSettings);
   });
+  protectedRoutes.post('/children/:childId/prizes/decrement', async (c) => {
+    const { childId } = c.req.param();
+    const child = new ChildEntity(c.env, childId);
+    const updatedSettings = await child.decrementPrizes();
+    return ok(c, updatedSettings);
+  });
   // --- CHILD-SPECIFIC PRIZE TARGET ROUTES ---
   protectedRoutes.post('/children/:childId/targets', async (c) => {
     const { childId } = c.req.param();
-    const body = await c.req.json<{ name?: string; type?: 'stars' | 'days'; targetCount?: number }>();
+    const body = await c.req.json<{ name?: string; type?: 'stars' | 'days' | 'weeks'; targetCount?: number }>();
     if (!isStr(body.name)) {
         return bad(c, 'Prize name must be a non-empty string.');
     }
-    if (!body.type || !['stars', 'days'].includes(body.type)) {
-        return bad(c, 'Invalid goal type. Must be "stars" or "days".');
+    if (!body.type || !['stars', 'days', 'weeks'].includes(body.type)) {
+        return bad(c, 'Invalid goal type. Must be "stars", "days", or "weeks".');
     }
     if (typeof body.targetCount !== 'number' || !Number.isInteger(body.targetCount) || body.targetCount <= 0) {
         return bad(c, 'Goal count must be a positive whole number.');

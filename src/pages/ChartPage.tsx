@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { PrizeTargetProgress } from '@/components/PrizeTargetProgress';
 import { WALLPAPER_LOOKUP } from '@/config/wallpapers';
+import { AddToHomeBanner } from '@/components/AddToHomeBanner';
 function ChartGridSkeleton() {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 md:gap-4">
@@ -209,6 +210,7 @@ export function ChartPage() {
         </footer>
       </div>
       <Toaster richColors closeButton />
+      <AddToHomeBanner />
     </main>
   );
 }

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Edit, PlusCircle, Star, CalendarDays, CheckCircle2, Trophy } from 'lucide-react';
+import { Trash2, Edit, PlusCircle, Star, CalendarDays, CalendarRange, CheckCircle2, Trophy } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -23,7 +23,7 @@ export function PrizeTargetManager({ children }: { children: React.ReactNode }) 
   const [isAdding, setIsAdding] = useState(false);
   const [editingTarget, setEditingTarget] = useState<PrizeTarget | null>(null);
   const [name, setName] = useState('');
-  const [type, setType] = useState<'stars' | 'days'>('stars');
+  const [type, setType] = useState<'stars' | 'days' | 'weeks'>('stars');
   const [targetCount, setTargetCount] = useState(10);
   const sortedTargets = useMemo(() => {
     return [...(selectedChild?.prizeTargets || [])].sort((a, b) => (a.isAchieved ? 1 : -1) - (b.isAchieved ? 1 : -1) || (a.achievedAt || 0) - (b.achievedAt || 0));
@@ -32,7 +32,7 @@ export function PrizeTargetManager({ children }: { children: React.ReactNode }) 
     setIsAdding(true);
     setEditingTarget(null);
     setName('');
-    setType('stars');
+    setType(selectedChild?.prizeMode === 'weekly' ? 'weeks' : 'stars');
     setTargetCount(10);
   };
   const handleEdit = (target: PrizeTarget) => {
@@ -67,13 +67,14 @@ export function PrizeTargetManager({ children }: { children: React.ReactNode }) 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="prize-type">Goal Type</Label>
-          <Select value={type} onValueChange={(v: 'stars' | 'days') => setType(v)}>
+          <Select value={type} onValueChange={(v: 'stars' | 'days' | 'weeks') => setType(v)}>
             <SelectTrigger id="prize-type">
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="stars">Total Stars</SelectItem>
               <SelectItem value="days">Perfect Days</SelectItem>
+              <SelectItem value="weeks">Perfect Weeks</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -108,7 +109,8 @@ export function PrizeTargetManager({ children }: { children: React.ReactNode }) 
                       <div>
                         <p className={`font-medium ${target.isAchieved ? 'line-through text-muted-foreground' : ''}`}>{target.name}</p>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          {target.targetCount} {target.type === 'stars' ? <Star className="h-3 w-3" /> : <CalendarDays className="h-3 w-3" />}
+                          {target.targetCount}{' '}
+                          {target.type === 'stars' ? <Star className="h-3 w-3" /> : target.type === 'days' ? <CalendarDays className="h-3 w-3" /> : <CalendarRange className="h-3 w-3" />}
                         </p>
                       </div>
                     </div>

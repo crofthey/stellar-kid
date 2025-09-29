@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useChartStore } from '@/stores/chartStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Star, CalendarDays } from 'lucide-react';
+import { Trophy, Star, CalendarDays, CalendarRange } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 export function PrizeTargetProgress() {
   const { selectedChild } = useChartStore(
@@ -20,9 +20,14 @@ export function PrizeTargetProgress() {
   if (!nextTarget) {
     return null;
   }
-  const currentProgress = nextTarget.type === 'stars' ? selectedChild?.totalStars || 0 : selectedChild?.totalPerfectDays || 0;
+  const currentProgress = nextTarget.type === 'stars'
+    ? selectedChild?.totalStars || 0
+    : nextTarget.type === 'days'
+      ? selectedChild?.totalPerfectDays || 0
+      : selectedChild?.totalPerfectWeeks || 0;
   const progressPercentage = Math.min((currentProgress / nextTarget.targetCount) * 100, 100);
-  const Icon = nextTarget.type === 'stars' ? Star : CalendarDays;
+  const Icon = nextTarget.type === 'stars' ? Star : nextTarget.type === 'days' ? CalendarDays : CalendarRange;
+  const unitLabel = nextTarget.type === 'stars' ? 'stars' : nextTarget.type === 'days' ? 'perfect days' : 'perfect weeks';
   return (
     <AnimatePresence>
       <motion.div
@@ -49,6 +54,7 @@ export function PrizeTargetProgress() {
               <span>/ {nextTarget.targetCount}</span>
               <Icon className="h-4 w-4 text-muted-foreground" />
             </div>
+            <p className="text-xs text-muted-foreground capitalize">Target: {unitLabel}</p>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <Progress value={progressPercentage} className="h-2" />

@@ -51,26 +51,52 @@ export class ChildEntity extends IndexedEntity<Child> {
         parentId: "",
         name: "My Child",
         prizeCount: 0,
-        prizeMode: 'weekly',
+        prizeMode: 'daily',
         prizeTargets: [],
         totalStars: 0,
         totalPerfectDays: 0,
+        totalPerfectWeeks: 0,
         backgroundPattern: 'confetti',
     };
     private static ensureBackground(state: Child): Child {
-        return state.backgroundPattern ? state : { ...state, backgroundPattern: 'confetti' };
+        return {
+            ...state,
+            backgroundPattern: state.backgroundPattern ?? 'confetti',
+            totalPerfectWeeks: state.totalPerfectWeeks ?? 0,
+        };
     }
     async updateSettings(settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>): Promise<Child> {
-        return this.mutate(s => ChildEntity.ensureBackground({
-            ...s,
-            ...settings,
-            backgroundPattern: settings.backgroundPattern ?? s.backgroundPattern ?? 'confetti',
-        }));
+        return this.mutate(s => {
+            let merged = { ...s, ...settings } as Child;
+            merged = ChildEntity.ensureBackground(merged);
+            if (settings.prizeMode) {
+                const recalculatedPrizeCount = settings.prizeMode === 'daily'
+                    ? merged.totalPerfectDays || 0
+                    : merged.totalPerfectWeeks || 0;
+                merged = {
+                    ...merged,
+                    prizeCount: recalculatedPrizeCount,
+                };
+            }
+            if (settings.backgroundPattern !== undefined) {
+                merged = {
+                    ...merged,
+                    backgroundPattern: settings.backgroundPattern,
+                };
+            }
+            return merged;
+        });
     }
     async incrementPrizes(): Promise<Child> {
         return this.mutate(s => ChildEntity.ensureBackground({
             ...s,
             prizeCount: (s.prizeCount || 0) + 1,
+        }));
+    }
+    async decrementPrizes(): Promise<Child> {
+        return this.mutate(s => ChildEntity.ensureBackground({
+            ...s,
+            prizeCount: Math.max(0, (s.prizeCount || 0) - 1),
         }));
     }
     async addPrizeTarget(target: PrizeTarget): Promise<Child> {
@@ -103,14 +129,19 @@ export class ChildEntity extends IndexedEntity<Child> {
             });
         });
     }
-    async updateStats(starDelta: number, perfectDayDelta: number): Promise<Child> {
+    async updateStats(starDelta: number, perfectDayDelta: number, perfectWeekDelta: number = 0): Promise<Child> {
         return this.mutate(s => {
             const base = ChildEntity.ensureBackground(s);
             const newTotalStars = (base.totalStars || 0) + starDelta;
             const newTotalPerfectDays = (base.totalPerfectDays || 0) + perfectDayDelta;
+            const newTotalPerfectWeeks = (base.totalPerfectWeeks || 0) + perfectWeekDelta;
             const updatedTargets = (base.prizeTargets || []).map(target => {
                 if (target.isAchieved) return target;
-                const progress = target.type === 'stars' ? newTotalStars : newTotalPerfectDays;
+                const progress = target.type === 'stars'
+                    ? newTotalStars
+                    : target.type === 'days'
+                        ? newTotalPerfectDays
+                        : newTotalPerfectWeeks;
                 if (progress >= target.targetCount) {
                     return { ...target, isAchieved: true, achievedAt: Date.now() };
                 }
@@ -120,6 +151,7 @@ export class ChildEntity extends IndexedEntity<Child> {
                 ...base,
                 totalStars: newTotalStars,
                 totalPerfectDays: newTotalPerfectDays,
+                totalPerfectWeeks: newTotalPerfectWeeks,
                 prizeTargets: updatedTargets,
             });
         });
@@ -132,6 +164,7 @@ export class ChildEntity extends IndexedEntity<Child> {
                 prizeCount: 0,
                 totalStars: 0,
                 totalPerfectDays: 0,
+                totalPerfectWeeks: 0,
                 prizeTargets: (base.prizeTargets || []).map(target => ({
                     ...target,
                     isAchieved: false,

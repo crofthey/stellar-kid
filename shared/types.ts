@@ -19,11 +19,12 @@ export interface User {
 }
 export type UserResponse = Omit<User, 'hashedPassword' | 'passwordResetToken' | 'passwordResetExpires'>;
 // Prize Target
+export type PrizeTargetType = 'stars' | 'days' | 'weeks';
 export interface PrizeTarget {
     id: string;
     childId: string;
     name: string;
-    type: 'stars' | 'days';
+    type: PrizeTargetType;
     targetCount: number;
     isAchieved: boolean;
     achievedAt?: number;
@@ -39,6 +40,7 @@ export interface Child {
     prizeTargets: PrizeTarget[];
     totalStars: number;
     totalPerfectDays: number;
+    totalPerfectWeeks: number;
     backgroundPattern: BackgroundPattern;
 }
 export interface CreateChildResponse {
