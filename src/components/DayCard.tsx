@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TimeSlot } from '@/components/TimeSlot';
 import { useChartStore } from '@/stores/chartStore';
 import { cn } from '@/lib/utils';
-import type { DayState } from '@shared/types';
+import type { DayState, SlotState } from '@shared/types';
 interface DayCardProps {
   date: Date;
   dayIndex: number;
@@ -18,6 +18,12 @@ const timeSlotLabels = ['Morning', 'Afternoon', 'Evening'];
 export function DayCard({ date, dayIndex, dayState, isPerfectWeek, prizeMode }: DayCardProps) {
   const updateSlotState = useChartStore((s) => s.updateSlotState);
   const isUpdating = useChartStore((s) => s.isUpdating);
+  const handleSlotChange = React.useCallback(
+    (slotIndex: number, currentState: SlotState) => {
+      updateSlotState(dayIndex, slotIndex, currentState);
+    },
+    [dayIndex, updateSlotState]
+  );
   const isSunday = dayIndex === 6;
   const isPerfectDay = dayState.every(slot => slot === 'star');
   return (
@@ -37,7 +43,8 @@ export function DayCard({ date, dayIndex, dayState, isPerfectWeek, prizeMode }: 
             key={slotIndex}
             label={timeSlotLabels[slotIndex]}
             state={slot}
-            onClick={() => updateSlotState(dayIndex, slotIndex, slot)}
+            slotIndex={slotIndex}
+            onClick={handleSlotChange}
             isUpdating={isUpdating[`${dayIndex}-${slotIndex}`] || false}
           />
         ))}

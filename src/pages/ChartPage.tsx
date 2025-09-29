@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { Toaster } from '@/components/ui/sonner';
@@ -71,6 +71,8 @@ export function ChartPage() {
       clearSelection: state.clearSelection,
     }))
   );
+  const selectedChildId = selectedChild?.id;
+  const fetchDebugRef = useRef<{ childId: string | null; dateKey: string | null }>({ childId: null, dateKey: null });
   useEffect(() => {
     if (isInitialized && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -82,18 +84,42 @@ export function ChartPage() {
     }
   }, [isAuthenticated, children, fetchChildren]);
   useEffect(() => {
-    if (childId && children.length > 0) {
+    if (!childId) return;
+    if (!selectedChild || selectedChild.id !== childId) {
       selectChild(childId);
     }
+  }, [childId, selectedChild?.id, selectChild]);
+
+  useEffect(() => {
     return () => {
       clearSelection();
     };
-  }, [childId, children, selectChild, clearSelection]);
+  }, [clearSelection]);
   useEffect(() => {
-    if (selectedChild) {
-      fetchWeekData(currentDate, selectedChild.id);
+    if (!selectedChildId) return;
+    const dateKey = currentDate.toDateString();
+    const prev = fetchDebugRef.current;
+    const reasons: string[] = [];
+    if (prev.childId !== selectedChildId) reasons.push('child changed');
+    if (prev.dateKey !== dateKey) reasons.push('date changed');
+    fetchDebugRef.current = { childId: selectedChildId, dateKey };
+    if (import.meta.env.DEV) {
+      console.log('[ChartPage] fetching week data', {
+        childId: selectedChildId,
+        dateKey,
+        reasons: reasons.length ? reasons : ['initial mount'],
+      });
     }
-  }, [currentDate, selectedChild, fetchWeekData]);
+    fetchWeekData(currentDate, selectedChildId);
+  }, [fetchWeekData, currentDate, selectedChildId]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.log('[ChartPage] loading state changed', {
+      isLoading,
+      hasWeekData: !!weekData,
+    });
+  }, [isLoading, weekData]);
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
   const isPerfectWeek = useMemo(() => {
     if (!weekData) return false;

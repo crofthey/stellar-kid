@@ -97,13 +97,30 @@ export const useChartStore = create<ChartState & ChartActions>()(
       get().fetchWeekData(date, childId);
     },
     fetchWeekData: async (date, childId) => {
+      if (import.meta.env.DEV) {
+        console.log('[chartStore] fetchWeekData:start', {
+          childId,
+          date: date.toISOString(),
+        });
+      }
       set({ isLoading: true });
       try {
         const { year, week } = getWeekInfo(date);
         const response = await api<ChartWeek>(`/api/children/${childId}/chart/${year}/${week}`);
+        if (import.meta.env.DEV) {
+          console.log('[chartStore] fetchWeekData:success', {
+            childId,
+            week,
+            year,
+            dataPreview: response.data,
+          });
+        }
         set({ weekData: response.data, isLoading: false });
       } catch (error) {
         toast.error('Could not load week data.');
+        if (import.meta.env.DEV) {
+          console.error('[chartStore] fetchWeekData:error', error);
+        }
         set({ isLoading: false });
       }
     },
@@ -116,7 +133,24 @@ export const useChartStore = create<ChartState & ChartActions>()(
       const originalState = get().weekData;
       const wasDayPerfectBefore = isDayPerfect(originalState?.[dayIndex]);
       const wasWeekPerfectBefore = isWeekPerfect(originalState);
-      set((state) => { if (state.weekData) { state.weekData[dayIndex][slotIndex] = nextState; } });
+      if (import.meta.env.DEV) {
+        console.log('[chartStore] updateSlotState:optimistic', {
+          childId,
+          dayIndex,
+          slotIndex,
+          from: currentState,
+          to: nextState,
+        });
+      }
+      set((state) => {
+        if (state.weekData) {
+          const clonedWeek: WeekData = { ...state.weekData };
+          const clonedDay = [...clonedWeek[dayIndex]] as SlotState[];
+          clonedDay[slotIndex] = nextState;
+          clonedWeek[dayIndex] = clonedDay as DayState;
+          state.weekData = clonedWeek;
+        }
+      });
       const isDayPerfectAfter = isDayPerfect(get().weekData?.[dayIndex]);
       const isWeekPerfectAfter = isWeekPerfect(get().weekData);
       try {
@@ -125,11 +159,32 @@ export const useChartStore = create<ChartState & ChartActions>()(
           method: 'POST',
           body: JSON.stringify({ dayIndex, slotIndex, state: nextState }),
         });
+        if (response.chartWeek) {
+          if (import.meta.env.DEV) {
+            console.log('[chartStore] updateSlotState:server week data', {
+              childId,
+              dayIndex,
+              slotIndex,
+              received: response.chartWeek.data,
+            });
+          }
+          set(state => {
+            state.weekData = response.chartWeek.data;
+          });
+        }
         if (response.child) {
+            if (import.meta.env.DEV) {
+              console.log('[chartStore] updateSlotState:received child delta', {
+                childId,
+                prizeCount: response.child.prizeCount,
+                prizeMode: response.child.prizeMode,
+              });
+            }
             set(state => {
-                state.selectedChild = response.child;
+                const ensured = ensureBackground(response.child);
+                state.selectedChild = ensured;
                 const childIndex = state.children.findIndex(c => c.id === childId);
-                if (childIndex !== -1) state.children[childIndex] = response.child;
+                if (childIndex !== -1) state.children[childIndex] = ensured;
             });
         }
         const prizeMode = get().selectedChild?.prizeMode;
@@ -142,9 +197,20 @@ export const useChartStore = create<ChartState & ChartActions>()(
         }
       } catch (error) {
         toast.error('Failed to save change. Reverting.');
+        if (import.meta.env.DEV) {
+          console.error('[chartStore] updateSlotState:error', error);
+        }
         set({ weekData: originalState });
       } finally {
         set((state) => { state.isUpdating[updateKey] = false; });
+        if (import.meta.env.DEV) {
+          console.log('[chartStore] updateSlotState:complete', {
+            childId,
+            dayIndex,
+            slotIndex,
+            isUpdating: get().isUpdating[updateKey],
+          });
+        }
       }
     },
     updateChildSettings: async (settings) => {
