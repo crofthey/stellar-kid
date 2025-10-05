@@ -71,6 +71,7 @@ android {
 kapt {
     correctErrorTypes = true
     generateStubs = true
+    includeCompileClasspath = true
 }
 
 dependencies {
