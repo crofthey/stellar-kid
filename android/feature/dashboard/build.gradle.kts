@@ -35,6 +35,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation(project(":core:designsystem"))
+    implementation(project(":core:model"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
