@@ -70,6 +70,7 @@ android {
 
 kapt {
     correctErrorTypes = true
+    generateStubs = true
 }
 
 dependencies {
