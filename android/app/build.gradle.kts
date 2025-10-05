@@ -110,7 +110,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     implementation("com.google.dagger:hilt-android:2.52")
-    kapt("com.google.dagger:hilt-compiler:2.52")
+    kapt("com.google.dagger:hilt-android-compiler:2.52")
 
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
