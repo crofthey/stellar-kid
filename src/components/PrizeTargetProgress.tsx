@@ -13,18 +13,37 @@ export function PrizeTargetProgress() {
   );
   const nextTarget = useMemo(() => {
     if (!selectedChild?.prizeTargets) return null;
-    return selectedChild.prizeTargets
-      .filter(t => !t.isAchieved)
-      .sort((a, b) => a.targetCount - b.targetCount)[0] || null;
+    return selectedChild.prizeTargets.find(target => !target.isAchieved) ?? null;
+  }, [selectedChild?.prizeTargets]);
+  const spentTotals = useMemo(() => {
+    if (!selectedChild) {
+      return { stars: 0, days: 0, weeks: 0 } as const;
+    }
+    const fromTargets = selectedChild.prizeTargets?.reduce(
+      (totals, target) => {
+        if (!target.isAchieved) return totals;
+        if (target.type === 'stars') totals.stars += target.targetCount;
+        else if (target.type === 'days') totals.days += target.targetCount;
+        else totals.weeks += target.targetCount;
+        return totals;
+      },
+      { stars: 0, days: 0, weeks: 0 }
+    ) ?? { stars: 0, days: 0, weeks: 0 };
+    return {
+      stars: selectedChild.spentStars ?? fromTargets.stars,
+      days: selectedChild.spentPerfectDays ?? fromTargets.days,
+      weeks: selectedChild.spentPerfectWeeks ?? fromTargets.weeks,
+    } as const;
   }, [selectedChild]);
   if (!nextTarget) {
     return null;
   }
-  const currentProgress = nextTarget.type === 'stars'
-    ? selectedChild?.totalStars || 0
-    : nextTarget.type === 'days'
-      ? selectedChild?.totalPerfectDays || 0
-      : selectedChild?.totalPerfectWeeks || 0;
+  const availableByType = {
+    stars: Math.max(0, (selectedChild?.totalStars ?? 0) - spentTotals.stars),
+    days: Math.max(0, (selectedChild?.totalPerfectDays ?? 0) - spentTotals.days),
+    weeks: Math.max(0, (selectedChild?.totalPerfectWeeks ?? 0) - spentTotals.weeks),
+  } as const;
+  const currentProgress = Math.min(availableByType[nextTarget.type], nextTarget.targetCount);
   const progressPercentage = Math.min((currentProgress / nextTarget.targetCount) * 100, 100);
   const Icon = nextTarget.type === 'stars' ? Star : nextTarget.type === 'days' ? CalendarDays : CalendarRange;
   const unitLabel = nextTarget.type === 'stars' ? 'stars' : nextTarget.type === 'days' ? 'perfect days' : 'perfect weeks';

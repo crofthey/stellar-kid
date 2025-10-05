@@ -29,3 +29,9 @@ dist-ssr
 .env.*
 
 data/
+# Android
+android/.gradle/
+android/local.properties
+android/.idea/
+android/*.iml
+android/app/build/

@@ -44,6 +44,9 @@ export interface Child {
     totalStars: number;
     totalPerfectDays: number;
     totalPerfectWeeks: number;
+    spentStars: number;
+    spentPerfectDays: number;
+    spentPerfectWeeks: number;
     backgroundPattern: BackgroundPattern;
 }
 export interface CreateChildResponse {

@@ -54,11 +54,25 @@ const initialState: ChartState = {
   isFetchingChildren: false,
   isUpdating: {},
 };
-const ensureBackground = (child: Child): Child => ({
-  ...child,
-  backgroundPattern: child.backgroundPattern ?? 'confetti',
-  totalPerfectWeeks: child.totalPerfectWeeks ?? 0,
-});
+const ensureBackground = (child: Child): Child => {
+  const prizeTargets = child.prizeTargets || [];
+  const aggregate = (type: PrizeTarget['type']) =>
+    prizeTargets.reduce((total, target) => target.isAchieved && target.type === type ? total + target.targetCount : total, 0);
+  const spentStars = child.spentStars ?? aggregate('stars');
+  const spentDays = child.spentPerfectDays ?? aggregate('days');
+  const spentWeeks = child.spentPerfectWeeks ?? aggregate('weeks');
+  return {
+    ...child,
+    prizeTargets,
+    backgroundPattern: child.backgroundPattern ?? 'confetti',
+    totalStars: child.totalStars ?? 0,
+    totalPerfectDays: child.totalPerfectDays ?? 0,
+    totalPerfectWeeks: child.totalPerfectWeeks ?? 0,
+    spentStars,
+    spentPerfectDays: spentDays,
+    spentPerfectWeeks: spentWeeks,
+  };
+};
 export const useChartStore = create<ChartState & ChartActions>()(
   immer((set, get) => ({
     ...initialState,

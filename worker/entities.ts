@@ -80,14 +80,43 @@ export class ChildEntity extends IndexedEntity<Child> {
         totalStars: 0,
         totalPerfectDays: 0,
         totalPerfectWeeks: 0,
+        spentStars: 0,
+        spentPerfectDays: 0,
+        spentPerfectWeeks: 0,
         backgroundPattern: 'confetti',
     };
+    private static calculateSpentCounts(prizeTargets: PrizeTarget[] | undefined) {
+        let stars = 0;
+        let days = 0;
+        let weeks = 0;
+        for (const target of prizeTargets || []) {
+            if (!target.isAchieved) continue;
+            if (target.type === 'stars') stars += target.targetCount;
+            else if (target.type === 'days') days += target.targetCount;
+            else weeks += target.targetCount;
+        }
+        return { stars, days, weeks };
+    }
     private static ensureBackground(state: Child): Child {
+        const prizeTargets = state.prizeTargets || [];
+        const { stars, days, weeks } = ChildEntity.calculateSpentCounts(prizeTargets);
         return {
             ...state,
+            prizeTargets,
             backgroundPattern: state.backgroundPattern ?? 'confetti',
+            totalStars: state.totalStars ?? 0,
+            totalPerfectDays: state.totalPerfectDays ?? 0,
             totalPerfectWeeks: state.totalPerfectWeeks ?? 0,
+            spentStars: stars,
+            spentPerfectDays: days,
+            spentPerfectWeeks: weeks,
         };
+    }
+    override async getState(): Promise<Child> {
+        const state = await super.getState();
+        const ensured = ChildEntity.ensureBackground(state);
+        this._state = ensured;
+        return ensured;
     }
     async updateSettings(settings: Partial<Pick<Child, 'name' | 'prizeMode' | 'backgroundPattern'>>): Promise<Child> {
         return this.mutate(s => {
@@ -156,19 +185,42 @@ export class ChildEntity extends IndexedEntity<Child> {
     async updateStats(starDelta: number, perfectDayDelta: number, perfectWeekDelta: number = 0): Promise<Child> {
         return this.mutate(s => {
             const base = ChildEntity.ensureBackground(s);
-            const newTotalStars = (base.totalStars || 0) + starDelta;
-            const newTotalPerfectDays = (base.totalPerfectDays || 0) + perfectDayDelta;
-            const newTotalPerfectWeeks = (base.totalPerfectWeeks || 0) + perfectWeekDelta;
+            const newTotalStars = Math.max(0, (base.totalStars || 0) + starDelta);
+            const newTotalPerfectDays = Math.max(0, (base.totalPerfectDays || 0) + perfectDayDelta);
+            const newTotalPerfectWeeks = Math.max(0, (base.totalPerfectWeeks || 0) + perfectWeekDelta);
+            const now = Date.now();
+            let availableStars = Math.max(0, newTotalStars - (base.spentStars || 0));
+            let availableDays = Math.max(0, newTotalPerfectDays - (base.spentPerfectDays || 0));
+            let availableWeeks = Math.max(0, newTotalPerfectWeeks - (base.spentPerfectWeeks || 0));
+            let spentStars = base.spentStars || 0;
+            let spentDays = base.spentPerfectDays || 0;
+            let spentWeeks = base.spentPerfectWeeks || 0;
             const updatedTargets = (base.prizeTargets || []).map(target => {
                 if (target.isAchieved) return target;
-                const progress = target.type === 'stars'
-                    ? newTotalStars
-                    : target.type === 'days'
-                        ? newTotalPerfectDays
-                        : newTotalPerfectWeeks;
-                if (progress >= target.targetCount) {
-                    return { ...target, isAchieved: true, achievedAt: Date.now() };
+                if (target.type === 'stars') {
+                    if (availableStars >= target.targetCount) {
+                        availableStars -= target.targetCount;
+                        spentStars += target.targetCount;
+                        return { ...target, isAchieved: true, achievedAt: now };
+                    }
+                    availableStars = Math.max(0, availableStars - target.targetCount);
+                    return target;
                 }
+                if (target.type === 'days') {
+                    if (availableDays >= target.targetCount) {
+                        availableDays -= target.targetCount;
+                        spentDays += target.targetCount;
+                        return { ...target, isAchieved: true, achievedAt: now };
+                    }
+                    availableDays = Math.max(0, availableDays - target.targetCount);
+                    return target;
+                }
+                if (availableWeeks >= target.targetCount) {
+                    availableWeeks -= target.targetCount;
+                    spentWeeks += target.targetCount;
+                    return { ...target, isAchieved: true, achievedAt: now };
+                }
+                availableWeeks = Math.max(0, availableWeeks - target.targetCount);
                 return target;
             });
             return ChildEntity.ensureBackground({
@@ -176,6 +228,9 @@ export class ChildEntity extends IndexedEntity<Child> {
                 totalStars: newTotalStars,
                 totalPerfectDays: newTotalPerfectDays,
                 totalPerfectWeeks: newTotalPerfectWeeks,
+                spentStars,
+                spentPerfectDays: spentDays,
+                spentPerfectWeeks: spentWeeks,
                 prizeTargets: updatedTargets,
             });
         });
