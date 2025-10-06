@@ -2,7 +2,7 @@ package com.stellarkid.app.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.AppDependencies
+import com.stellarkid.app.store.FakeDataStore
 import com.stellarkid.core.model.Child
 import com.stellarkid.core.model.UpdateChildSettingsRequest
 import com.stellarkid.feature.dashboard.DashboardUiState
@@ -16,9 +16,7 @@ import kotlinx.coroutines.launch
 
 class DashboardViewModel : ViewModel() {
 
-    private val authRepository = AppDependencies.authRepository
-    private val childrenRepository = AppDependencies.childrenRepository
-    private val feedbackRepository = AppDependencies.feedbackRepository
+    private val store = FakeDataStore
 
     private val _uiState = MutableStateFlow(DashboardUiState(isLoading = true))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -28,7 +26,7 @@ class DashboardViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            authRepository.authState.collect { state ->
+            store.authState.collect { state ->
                 if (state.user != null && state.isInitialized) {
                     refreshChildren()
                 } else if (state.user == null && state.isInitialized) {
@@ -41,7 +39,7 @@ class DashboardViewModel : ViewModel() {
     fun refreshChildren() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null, errorMessage = null) }
-            val result = childrenRepository.getChildren()
+            val result = store.getChildren()
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { children ->
@@ -59,7 +57,7 @@ class DashboardViewModel : ViewModel() {
         if (name.isBlank()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null, errorMessage = null) }
-            val result = childrenRepository.createChild(name)
+            val result = store.createChild(name)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { response ->
@@ -82,7 +80,7 @@ class DashboardViewModel : ViewModel() {
 
     fun deleteChild(child: Child) {
         viewModelScope.launch {
-            val result = childrenRepository.deleteChild(child.id)
+            val result = store.deleteChild(child.id)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = {
@@ -109,7 +107,7 @@ class DashboardViewModel : ViewModel() {
     fun submitFeedback(message: String) {
         if (message.length < 5) return
         viewModelScope.launch {
-            val result = feedbackRepository.submitFeedback(message)
+            val result = store.submitFeedback(message)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { current.copy(message = "Feedback sent. Thank you!", errorMessage = null) },
@@ -121,7 +119,7 @@ class DashboardViewModel : ViewModel() {
 
     fun changePassword(currentPassword: String, newPassword: String) {
         viewModelScope.launch {
-            val result = authRepository.changePassword(currentPassword, newPassword)
+            val result = store.changePassword(currentPassword, newPassword)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { current.copy(message = "Password updated", errorMessage = null) },
@@ -133,7 +131,7 @@ class DashboardViewModel : ViewModel() {
 
     fun logout() {
         viewModelScope.launch {
-            authRepository.logout()
+            store.logout()
         }
     }
 

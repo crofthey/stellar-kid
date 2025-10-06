@@ -3,7 +3,7 @@ package com.stellarkid.app.ui.chart
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.AppDependencies
+import com.stellarkid.app.store.FakeDataStore
 import com.stellarkid.app.util.weekDayLabels
 import com.stellarkid.app.util.weekLabel
 import com.stellarkid.app.util.toWeekInfo
@@ -25,7 +25,7 @@ class ChartViewModel(
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val childrenRepository = AppDependencies.childrenRepository
+    private val store = FakeDataStore
 
     private val childId: String = requireNotNull(savedStateHandle.get<String>("childId"))
     private val _uiState = MutableStateFlow(ChartUiState(isLoading = true))
@@ -41,7 +41,7 @@ class ChartViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null, errorMessage = null) }
-            val childrenResult = childrenRepository.getChildren()
+            val childrenResult = store.getChildren()
             childrenResult.onFailure { error ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Unable to load child") }
             }
@@ -71,7 +71,7 @@ class ChartViewModel(
         val child = currentChild ?: return
         if (name.isBlank() || name == child.name) return
         viewModelScope.launch {
-            val result = childrenRepository.updateChildSettings(child.id, UpdateChildSettingsRequest(name = name))
+            val result = store.updateChildSettings(child.id, UpdateChildSettingsRequest(name = name))
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { updatedChild ->
@@ -90,7 +90,7 @@ class ChartViewModel(
         val child = currentChild ?: return
         if (mode == child.prizeMode) return
         viewModelScope.launch {
-            val result = childrenRepository.updateChildSettings(child.id, UpdateChildSettingsRequest(prizeMode = mode))
+            val result = store.updatePrizeMode(child.id, mode)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { updatedChild ->
@@ -109,7 +109,7 @@ class ChartViewModel(
         val child = currentChild ?: return
         val info = currentDate.toWeekInfo()
         viewModelScope.launch {
-            val result = childrenRepository.resetChart(child.id, info.year, info.week)
+            val result = store.resetChart(child.id, info.year, info.week)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { response ->
@@ -142,7 +142,7 @@ class ChartViewModel(
             SlotState.CROSS -> SlotState.EMPTY
         }
         viewModelScope.launch {
-            val result = childrenRepository.updateSlot(
+            val result = store.updateSlot(
                 childId = child.id,
                 year = info.year,
                 week = info.week,
@@ -172,7 +172,7 @@ class ChartViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = null, errorMessage = null) }
             val info = currentDate.toWeekInfo()
-            val result = childrenRepository.getChartWeek(child.id, info.year, info.week)
+            val result = store.getChartWeek(child.id, info.year, info.week)
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { chartWeek ->

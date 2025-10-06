@@ -2,7 +2,7 @@ package com.stellarkid.app.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.AppDependencies
+import com.stellarkid.app.store.FakeDataStore
 import com.stellarkid.feature.auth.AuthUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,19 +12,17 @@ import kotlinx.coroutines.launch
 
 class AuthViewModel : ViewModel() {
 
-    private val authRepository = AppDependencies.authRepository
+    private val store = FakeDataStore
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    val authState = authRepository.authState
+    val authState = store.authState
 
     init {
+        store.initializeAuth()
         viewModelScope.launch {
-            authRepository.initialize()
-        }
-        viewModelScope.launch {
-            authRepository.authState.collect { state ->
+            authState.collect { state ->
                 _uiState.update { current ->
                     current.copy(
                         isInitialized = state.isInitialized,
@@ -39,7 +37,7 @@ class AuthViewModel : ViewModel() {
         if (email.isBlank() || password.isBlank()) return
         _uiState.update { it.copy(errorMessage = null) }
         viewModelScope.launch {
-            val result = authRepository.login(email, password)
+            val result = store.login(email, password)
             handleResult(result)
         }
     }
@@ -48,7 +46,7 @@ class AuthViewModel : ViewModel() {
         if (email.isBlank() || password.isBlank()) return
         _uiState.update { it.copy(errorMessage = null) }
         viewModelScope.launch {
-            val result = authRepository.register(email, password)
+            val result = store.register(email, password)
             handleResult(result)
         }
     }
@@ -56,7 +54,7 @@ class AuthViewModel : ViewModel() {
     fun forgotPassword(email: String) {
         if (email.isBlank()) return
         viewModelScope.launch {
-            val result = authRepository.forgotPassword(email)
+            val result = store.forgotPassword(email)
             _uiState.update { current ->
                 current.copy(
                     errorMessage = result.exceptionOrNull()?.message,
@@ -70,7 +68,7 @@ class AuthViewModel : ViewModel() {
     fun resetPassword(token: String, password: String) {
         if (token.isBlank() || password.isBlank()) return
         viewModelScope.launch {
-            val result = authRepository.resetPassword(token, password)
+            val result = store.resetPassword(token, password)
             handleResult(result)
         }
     }
