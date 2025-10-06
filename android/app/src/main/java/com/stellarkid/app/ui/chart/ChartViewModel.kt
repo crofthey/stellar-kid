@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalStdlibApi::class)
+
 package com.stellarkid.app.ui.chart
 
 import androidx.lifecycle.SavedStateHandle
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.ExperimentalStdlibApi
 
 @HiltViewModel
 class ChartViewModel @Inject constructor(

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalStdlibApi::class)
+
 package com.stellarkid.app.ui.dashboard
 
 import androidx.lifecycle.ViewModel
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.ExperimentalStdlibApi
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
