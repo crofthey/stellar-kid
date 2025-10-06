@@ -4,8 +4,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.dagger.hilt.android")
-    id("com.google.devtools.ksp")
 }
 
 android {
@@ -55,7 +53,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += "-opt-in=kotlin.ExperimentalStdlibApi"
     }
 
     composeOptions {
@@ -76,8 +73,6 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation(project(":core:model"))
-    implementation(project(":core:network"))
-    implementation(project(":core:datastore"))
     implementation(project(":core:designsystem"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:dashboard"))
@@ -99,18 +94,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
-
     implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    implementation("com.google.dagger:hilt-android:2.52")
-    ksp("com.google.dagger:hilt-compiler:2.52")
-
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
 

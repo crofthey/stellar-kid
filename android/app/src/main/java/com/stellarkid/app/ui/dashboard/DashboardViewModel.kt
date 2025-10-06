@@ -2,14 +2,10 @@ package com.stellarkid.app.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.data.auth.AuthRepository
-import com.stellarkid.app.data.children.ChildrenRepository
-import com.stellarkid.app.data.feedback.FeedbackRepository
+import com.stellarkid.app.AppDependencies
 import com.stellarkid.core.model.Child
 import com.stellarkid.core.model.UpdateChildSettingsRequest
 import com.stellarkid.feature.dashboard.DashboardUiState
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,12 +14,11 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class DashboardViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val childrenRepository: ChildrenRepository,
-    private val feedbackRepository: FeedbackRepository,
-) : ViewModel() {
+class DashboardViewModel : ViewModel() {
+
+    private val authRepository = AppDependencies.authRepository
+    private val childrenRepository = AppDependencies.childrenRepository
+    private val feedbackRepository = AppDependencies.feedbackRepository
 
     private val _uiState = MutableStateFlow(DashboardUiState(isLoading = true))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()

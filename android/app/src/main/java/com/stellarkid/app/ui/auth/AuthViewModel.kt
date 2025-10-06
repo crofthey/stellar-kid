@@ -2,20 +2,17 @@ package com.stellarkid.app.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.data.auth.AuthRepository
+import com.stellarkid.app.AppDependencies
 import com.stellarkid.feature.auth.AuthUiState
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-) : ViewModel() {
+class AuthViewModel : ViewModel() {
+
+    private val authRepository = AppDependencies.authRepository
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()

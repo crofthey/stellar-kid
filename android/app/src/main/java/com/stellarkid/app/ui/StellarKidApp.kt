@@ -4,8 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.collectLatest
 fun StellarKidApp() {
     StellarKidTheme {
         val navController = rememberNavController()
-        val authViewModel: AuthViewModel = hiltViewModel()
+        val authViewModel: AuthViewModel = viewModel()
         val authUiState by authViewModel.uiState.collectAsStateWithLifecycle()
         val authState by authViewModel.authState.collectAsStateWithLifecycle()
 
@@ -55,7 +55,7 @@ fun StellarKidApp() {
                 )
             }
             composable(Routes.DASHBOARD) {
-                val dashboardViewModel: DashboardViewModel = hiltViewModel()
+                val dashboardViewModel: DashboardViewModel = viewModel()
                 val dashboardState by dashboardViewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(dashboardViewModel) {
@@ -83,10 +83,10 @@ fun StellarKidApp() {
                 route = Routes.CHART,
                 arguments = listOf(navArgument("childId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val chartViewModel: ChartViewModel = hiltViewModel(backStackEntry)
+                val chartViewModel: ChartViewModel = viewModel(backStackEntry)
                 val chartState by chartViewModel.uiState.collectAsStateWithLifecycle()
                 val dashboardEntry = remember(navController) { navController.getBackStackEntry(Routes.DASHBOARD) }
-                val dashboardViewModel: DashboardViewModel = hiltViewModel(dashboardEntry)
+                val dashboardViewModel: DashboardViewModel = viewModel(dashboardEntry)
                 ChartScreen(
                     state = chartState,
                     onBack = {

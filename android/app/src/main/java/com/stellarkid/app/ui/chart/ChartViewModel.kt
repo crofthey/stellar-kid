@@ -3,7 +3,7 @@ package com.stellarkid.app.ui.chart
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stellarkid.app.data.children.ChildrenRepository
+import com.stellarkid.app.AppDependencies
 import com.stellarkid.app.util.weekDayLabels
 import com.stellarkid.app.util.weekLabel
 import com.stellarkid.app.util.toWeekInfo
@@ -14,20 +14,18 @@ import com.stellarkid.core.model.SlotState
 import com.stellarkid.core.model.UpdateChildSettingsRequest
 import com.stellarkid.core.model.UpdateSlotRequest
 import com.stellarkid.feature.chart.ChartUiState
-import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class ChartViewModel @Inject constructor(
+class ChartViewModel(
     private val savedStateHandle: SavedStateHandle,
-    private val childrenRepository: ChildrenRepository,
 ) : ViewModel() {
+
+    private val childrenRepository = AppDependencies.childrenRepository
 
     private val childId: String = requireNotNull(savedStateHandle.get<String>("childId"))
     private val _uiState = MutableStateFlow(ChartUiState(isLoading = true))
