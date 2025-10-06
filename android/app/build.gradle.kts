@@ -126,10 +126,3 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
-
-tasks.withType<org.jetbrains.kotlin.gradle.internal.KaptTask>().configureEach {
-    kaptOptions {
-        correctErrorTypes = true
-        includeCompileClasspath = true
-    }
-}
