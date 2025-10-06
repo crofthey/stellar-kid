@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
-    kotlin("kapt")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -68,12 +68,6 @@ android {
     }
 }
 
-kapt {
-    correctErrorTypes = true
-    generateStubs = true
-    includeCompileClasspath = true
-}
-
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
 
@@ -112,7 +106,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     implementation("com.google.dagger:hilt-android:2.52")
-    kapt("com.google.dagger:hilt-android-compiler:2.52")
+    ksp("com.google.dagger:hilt-compiler:2.52")
 
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
