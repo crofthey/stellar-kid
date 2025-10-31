@@ -1,6 +1,12 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+android {
+    namespace = "com.stellarkid.core.model"
+    compileSdk = 35
 }
 
 kotlin {
