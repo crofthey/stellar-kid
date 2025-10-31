@@ -17,11 +17,3 @@ dependencyResolutionManagement {
 }
 
 include(":app")
-include(":core:model")
-include(":core:network")
-include(":core:datastore")
-include(":core:designsystem")
-include(":feature:auth")
-include(":feature:dashboard")
-include(":feature:chart")
-include(":feature:settings")

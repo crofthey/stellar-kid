@@ -3,13 +3,19 @@ package com.stellarkid.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.stellarkid.app.ui.StellarKidApp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            StellarKidApp()
+            MaterialTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    Text(text = "Hello, StellarKid")
+                }
+            }
         }
     }
 }
